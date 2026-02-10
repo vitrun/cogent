@@ -1,63 +1,46 @@
 import asyncio
 
-from cogent.agent import Agent, AgentResult, AgentState
+from cogent import Agent, Result, ReActState, Control
+from fakes import make_fake_env
 
 
 def test_then_success() -> None:
     async def run_flow():
-        async def step(s: AgentState, v: str) -> AgentResult[AgentState, str]:
-            return AgentResult(s, v + "-next", valid=True)
+        async def step(s: ReActState, v: str, env) -> Result[ReActState, str]:
+            _ = env
+            return Result(s, control=Control.Continue(v + "-next"))
 
         flow = Agent.start("state", "start").then(step)
-        return await flow.run()
+        return await flow.run(make_fake_env())
 
     result = asyncio.run(run_flow())
-    assert result.valid is True
-    assert result.value == "start-next"
+    assert result.control.kind == "continue"
+    assert result.control.value == "start-next"
 
 
 def test_then_failure_short_circuit() -> None:
     async def run_flow():
-        async def failing_step(s: AgentState, v: str) -> AgentResult[AgentState, str]:
-            return AgentResult(s, None, valid=False, error="error")
+        async def failing_step(s: ReActState, v: str, env) -> Result[ReActState, str]:
+            _ = (v, env)
+            return Result(s, control=Control.Error("error"))
 
         flow = Agent.start("state", "start").then(failing_step)
-        return await flow.run()
+        return await flow.run(make_fake_env())
 
     result = asyncio.run(run_flow())
-    assert result.valid is False
-    assert result.error == "error"
+    assert result.control.kind == "error"
+    assert result.control.reason == "error"
 
 
-def test_map_apply() -> None:
+def test_map() -> None:
     async def run_flow():
         base = Agent.start("state", 2)
         mapped = base.map(lambda v: v + 1)
-        return await mapped.run()
+        return await mapped.run(make_fake_env())
 
     result = asyncio.run(run_flow())
-    assert result.value == 3
-
-    async def run_apply_flow():
-        base = Agent.start("state", 2)
-        func_flow = Agent.start("state", lambda v: v * 5)
-        applied = base.apply(func_flow)
-        return await applied.run()
-
-    apply_result = asyncio.run(run_apply_flow())
-    assert apply_result.value == 10
-
-
-def test_async_gather() -> None:
-    async def run_flow():
-        flow_a = Agent.start("state", 2).map(lambda v: v * 2)
-        flow_b = Agent.start("state", 3).map(lambda v: v * 2)
-        gathered = Agent.gather([flow_a, flow_b])
-        return await gathered.run()
-
-    result = asyncio.run(run_flow())
-    assert result.valid is True
-    assert result.value == [4, 6]
+    assert result.control.kind == "continue"
+    assert result.control.value == 3
 
 
 def test_map_simplification() -> None:
@@ -67,8 +50,90 @@ def test_map_simplification() -> None:
         # Before: would need a full then with async function
         # After: can use simple map
         flow = Agent.start("state", 2).map(lambda v: v * 2)
-        return await flow.run()
+        return await flow.run(make_fake_env())
 
     result = asyncio.run(run_flow())
-    assert result.valid is True
-    assert result.value == 4
+    assert result.control.kind == "continue"
+    assert result.control.value == 4
+
+
+def test_control_halt_propagates_value() -> None:
+    async def run_flow():
+        async def halting_step(s: ReActState, v: str, env) -> Result[ReActState, str]:
+            _ = env
+            return Result(s, control=Control.Halt(v + "-halt"))
+
+        async def unreachable_step(s: ReActState, v: str, env) -> Result[ReActState, str]:
+            _ = env
+            return Result(s, control=Control.Continue(v + "-next"))
+
+        flow = Agent.start("state", "start").then(halting_step).then(unreachable_step)
+        return await flow.run(make_fake_env())
+
+    result = asyncio.run(run_flow())
+    assert result.control.kind == "halt"
+    assert result.control.value == "start-halt"
+
+
+def test_control_retry_reruns_current_step() -> None:
+    async def run_flow():
+        attempt_count = 0
+
+        async def retrying_step(s: ReActState, v: str, env) -> Result[ReActState, str]:
+            _ = env
+            nonlocal attempt_count
+            attempt_count += 1
+            if attempt_count < 3:
+                    return Result(s, control=Control.RetryClean("retry"))
+            return Result(s, control=Control.Continue(v + "-done"))
+
+        flow = Agent.start("state", "start").then(retrying_step)
+        result = await flow.run(make_fake_env())
+        return result, attempt_count
+
+    result, attempt_count = asyncio.run(run_flow())
+    assert result.control.kind == "continue"
+    assert result.control.value == "start-done"
+    assert attempt_count == 3
+
+
+def test_control_propagates_across_combinators() -> None:
+    async def run_map_flow():
+        async def halting_step(s: ReActState, v: str, env) -> Result[ReActState, str]:
+            _ = env
+            return Result(s, control=Control.Halt(v))
+
+        flow = Agent.start("state", "start").then(halting_step).map(lambda v: v + "-map")
+        return await flow.run(make_fake_env())
+
+    map_result = asyncio.run(run_map_flow())
+    assert map_result.control.value == "start"
+    assert map_result.control.kind == "halt"
+
+
+def test_control_retry_dirty_preserves_state() -> None:
+    async def run_flow():
+        attempt_count = 0
+
+        async def retrying_step(s: ReActState, v: str, env) -> Result[ReActState, str]:
+            _ = env
+            nonlocal attempt_count
+            attempt_count += 1
+            # On each retry, modify the state
+            new_state = f"{s}-attempt-{attempt_count}"
+            if attempt_count < 3:
+                    return Result(new_state, control=Control.RetryDirty("retry"))
+            return Result(new_state, control=Control.Continue(v + "-done"))
+
+        flow = Agent.start("initial-state", "start").then(retrying_step)
+        result = await flow.run(make_fake_env())
+        return result, attempt_count
+
+    result, attempt_count = asyncio.run(run_flow())
+    assert result.control.kind == "continue"
+    assert result.control.value == "start-done"
+    assert attempt_count == 3
+    # Verify that the state has evolved through all attempts
+    assert result.state == "initial-state-attempt-1-attempt-2-attempt-3"
+
+

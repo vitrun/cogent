@@ -1,7 +1,8 @@
 """Test Evidence-based traceability system using pytest."""
 
-from cogent.model import Evidence, AgentState
-from cogent.agent import AgentResult
+from cogent.core import Evidence, Result, Control
+from cogent.starter import ReActState
+from fakes import make_fake_env
 
 
 def test_evidence_creation():
@@ -14,25 +15,26 @@ def test_evidence_creation():
 def test_evidence_hierarchy():
     """Test parent-child relationships."""
     parent = Evidence("parent")
-    parent.children.clear()  # Ensure clean state
 
-    child = parent.child("child")
+    # With immutable design, child() returns a new Evidence object
+    parent_with_child = parent.child("child")
+    child = parent_with_child.children[0]
 
     assert child.action == "child"
     assert child.parent_id == parent.step_id
-    assert len(parent.children) == 1
-    assert parent.children[0] is child
+    assert len(parent_with_child.children) == 1
+    assert parent_with_child.children[0] is child
 
 
 def test_file_provenance():
     """Test 'who created this file' scenario."""
     evidence = Evidence("root")
 
-    # Create file with author
-    evidence.child("file.write", info={"author": "market_analyst", "timestamp": "now"})
+    # Create file with author - using immutable design
+    evidence_with_file = evidence.child("file.write", info={"author": "market_analyst", "timestamp": "now"})
 
     # Query who created the file
-    creators = list(evidence.find_all(action="file.write"))
+    creators = list(evidence_with_file.find_all(action="file.write"))
 
     assert len(creators) == 1
     assert creators[0].info["author"] == "market_analyst"
@@ -42,12 +44,12 @@ def test_side_effect_tracking():
     """Test external side effects are traceable."""
     evidence = Evidence("start")
 
-    # Tool operations - create but don't need variables
-    evidence.child("tool.search", info={"tool": "search_api"})
-    evidence.child("tool.analyze", info={"tool": "ai_model"})
+    # Tool operations - using immutable design
+    evidence = evidence.child("tool.search", info={"tool": "search_api"})
+    evidence = evidence.child("tool.analyze", info={"tool": "ai_model"})
 
     # File operations
-    evidence.child("file.write", info={"size": "1MB"})
+    evidence = evidence.child("file.write", info={"size": "1MB"})
 
     # Query operations - find_all uses **kwargs, not lambda
     file_operations = list(evidence.find_all(action="file.write"))
@@ -61,32 +63,55 @@ def test_action_chaining():
     """Test evidence chains naturally."""
     react = Evidence("start")
 
-    # ReAct pattern simulation
-    think = react.child("reason", info={"phase": "thinking"})
+    # ReAct pattern simulation - using immutable design
+    # think is a NEW Evidence object with "reason" as a child
+    react_with_think = react.child("reason", info={"phase": "thinking"})
 
-    search = think.child("tool.search", info={"tool": "intelligence"})
+    # search is a NEW Evidence object with "tool.search" as a child of the "reason" child
+    react_with_search = react_with_think.child("tool.search", info={"tool": "intelligence"})
 
-    observe = search.child("observe", info={"source": "reliable"})
+    # observe is a NEW Evidence object with "observe" as a child of the "tool.search" child
+    react_with_observe = react_with_search.child("observe", info={"source": "reliable"})
 
-    # Build act step but don't use act variable
-    observe.child("act", info={"action": "buy"})
+    # observe_with_act is a NEW Evidence object with "act" as a child of the "observe" child
+    react_with_act = react_with_observe.child("act", info={"action": "buy"})
 
     # Verify chain exists
-    assert len(react.children) == 1
-    assert react.children[0].action == "reason"
-    assert len(react.children[0].children) == 1
-    assert react.children[0].children[0].action == "tool.search"
+    # Original react has no children (immutable)
+    assert len(react.children) == 0
+    
+    # react_with_think should have one child (reason)
+    assert len(react_with_think.children) == 1
+    assert react_with_think.children[0].action == "reason"
+    
+    # react_with_search should have two children (reason and tool.search)
+    assert len(react_with_search.children) == 2
+    assert "reason" in [child.action for child in react_with_search.children]
+    assert "tool.search" in [child.action for child in react_with_search.children]
+    
+    # react_with_observe should have three children
+    assert len(react_with_observe.children) == 3
+    assert "observe" in [child.action for child in react_with_observe.children]
+    
+    # react_with_act should have four children
+    assert len(react_with_act.children) == 4
+    assert "act" in [child.action for child in react_with_act.children]
 
 
 def test_contextual_state():
     """Test ContextualState base functionality."""
 
-    class TestState(AgentState):
+    class TestState:
+        def __init__(self, task=""):
+            self.task = task
+            self.evidence = None
+            self.history = []
+        
         def model_copy(self, *, update=None, deep=False):
             """Simple copy implementation for testing."""
-            new_state = TestState(task="test_task")
+            new_state = TestState(task=self.task)
             new_state.evidence = self.evidence
-            new_state.history = self.history
+            new_state.history = self.history.copy()
             if update:
                 for key, value in update.items():
                     setattr(new_state, key, value)
@@ -104,21 +129,21 @@ def test_all_traceability_requirements():
     """Test comprehensive traceability workflow."""
     evidence = Evidence("task")
 
-    # Tool operations
-    evidence.child("tool.search", info={"tool": "intelligence", "cost": 0.1})
+    # Tool operations - using immutable design
+    evidence = evidence.child("tool.search", info={"tool": "intelligence", "cost": 0.1})
 
     # File operations
-    evidence.child("file.write", info={"author": "ai_analyst"})
+    evidence = evidence.child("file.write", info={"author": "ai_analyst"})
 
     # Human interaction
-    evidence.child("need_human_confirmation", info={"user": "reviewer"})
+    evidence = evidence.child("need_human_confirmation", info={"user": "reviewer"})
 
     # Sub-agent creation
-    evidence.child("spawn_subagent", info={"parent": "main_agent"})
+    evidence = evidence.child("spawn_subagent", info={"parent": "main_agent"})
 
     # Verify results
     all_actions = list(evidence.find_all())
-    assert len(all_actions) == 5  # root + search + report + human + delegate
+    assert len(all_actions) == 5  # root + search + file.write + human + delegate
 
     # File provenance check
     report_creators = [
@@ -130,35 +155,19 @@ def test_all_traceability_requirements():
 def test_evidence_monad_basic():
     """Test EvidenceMonad basic functionality."""
     # Create traced state
-    traced_state = AgentState()
-    traced_state.evidence = Evidence("start")
+    traced_state = ReActState()
 
     # Create monad
-    monad = AgentResult(traced_state, "test_value")
+    monad = Result(traced_state, control=Control.Continue("test_value"))
 
-    assert monad.valid
-    assert monad.value == "test_value"
+    assert monad.control.kind == "continue"
+    assert monad.control.value == "test_value"
     assert monad.state.evidence.action == "start"
-
-
-def test_evidence_monad_tracing():
-    """Test evidence monad tracing."""
-    traced_state = AgentState()
-    traced_state.evidence = Evidence("start")
-
-    monad = AgentResult(traced_state, "value")
-
-    # Add trace
-    traced = monad.trace("tool.call", input_data={"tool": "search"})
-
-    assert traced.value == "value"  # Value unchanged
-    assert traced.state.evidence.action == "tool.call"
 
 
 def test_traced_agent_state():
     """Test AgentState functionality."""
-    traced_state = AgentState()
-    traced_state.evidence = Evidence("start")
+    traced_state = ReActState()
 
     # Add evidence through state
     new_state = traced_state.with_evidence(
@@ -166,46 +175,51 @@ def test_traced_agent_state():
     )
 
     assert new_state is not traced_state  # New state instance
-    assert new_state.evidence.action == "tool.call"
-    # Check the info structure
-    assert "type" in new_state.evidence.info
-    assert new_state.evidence.info["type"] == "lookup"
+    assert new_state.evidence.action == "start"  # Root evidence action remains "start"
+    assert len(new_state.evidence.children) == 1  # Should have one child evidence
+    child_evidence = new_state.evidence.children[0]
+    assert child_evidence.action == "tool.call"  # Child evidence action is "tool.call"
+    # Check the info structure in child evidence
+    assert "type" in child_evidence.info
+    assert child_evidence.info["type"] == "lookup"
 
 
 def test_workflow_integration():
     """Test evidence in a realistic monadic workflow."""
     import asyncio
-    from cogent.agent import Agent
+    from cogent import Agent
 
     # Initialize traced state
-    initial_state = AgentState(task="test_workflow")
-    initial_state.evidence = Evidence("workflow_start")
+    initial_state = ReActState()
 
-    async def process_market_data(state, _):
+    async def process_market_data(state, _, env):
+        _ = env
         new_state = state.with_evidence(
             "tool.market_api",
             input_data={"query": "market_data"},
             info={"api": "market_data_v1", "cost": 0.05},
         )
-        return AgentResult(new_state, "processed_data", valid=True)
+        return Result(new_state, control=Control.Continue("processed_data"))
 
-    async def apply_ml_model(state, data):
+    async def apply_ml_model(state, data, env):
+        _ = env
         new_state = state.with_evidence(
             "ml_model.apply",
             input_data=data,
             output_data={"trend": "bullish", "confidence": 0.85},
             info={"model": "trend_predictor_v2"},
         )
-        return AgentResult(new_state, "analysis_results", valid=True)
+        return Result(new_state, control=Control.Continue("analysis_results"))
 
-    async def write_report(state, data):
+    async def write_report(state, data, env):
+        _ = env
         new_state = state.with_evidence(
             "file.write",
             input_data=data,
             output_data={"file": "market_report.pdf", "size": "1.2MB"},
             info={"author": "ai_analyst", "template": "market_analysis"},
         )
-        return AgentResult(new_state, "report_generated", valid=True)
+        return Result(new_state, control=Control.Continue("report_generated"))
 
     async def run_workflow():
         # Execute workflow
@@ -215,7 +229,8 @@ def test_workflow_integration():
             .then(apply_ml_model)
             .then(write_report)
         )
-        return await workflow.run()
+        env = make_fake_env()
+        return await workflow.run(env)
 
     result = asyncio.run(run_workflow())
 
@@ -223,9 +238,19 @@ def test_workflow_integration():
     final_evidence = result.state.evidence
     assert final_evidence is not None
 
-    # Verify the final step evidence
-    assert final_evidence.action == "file.write"
-    assert "author" in final_evidence.info
-    assert final_evidence.info["author"] == "ai_analyst"
-    assert "template" in final_evidence.info
-    assert final_evidence.info["template"] == "market_analysis"
+    # Verify the root evidence action remains "workflow_start"
+    assert final_evidence.action == "start"
+    
+    # Verify we have 3 child evidences (market_api, ml_model.apply, file.write)
+    assert len(final_evidence.children) == 3
+    
+    # Verify the final step evidence is in the children
+    file_write_evidences = [e for e in final_evidence.children if e.action == "file.write"]
+    assert len(file_write_evidences) == 1
+    
+    # Check the info structure in the file.write evidence
+    file_write_evidence = file_write_evidences[0]
+    assert "author" in file_write_evidence.info
+    assert file_write_evidence.info["author"] == "ai_analyst"
+    assert "template" in file_write_evidence.info
+    assert file_write_evidence.info["template"] == "market_analysis"
