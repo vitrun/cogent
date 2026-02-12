@@ -9,7 +9,7 @@ from .agent import Step
 from .result import Control, Result
 
 
-class ToolCall(BaseModel):
+class ToolUse(BaseModel):
     id: str
     name: str
     args: dict[str, Any]
@@ -62,7 +62,7 @@ class ToolRegistry:
     def get_definition(self, name: str) -> Optional[ToolDefinition]:
         return self._definitions.get(name)
 
-    async def run(self, env: Any, state: Any, call: ToolCall) -> ToolResult:
+    async def run(self, env: Any, state: Any, call: ToolUse) -> ToolResult:
         handler = self._tools.get(call.name)
         if handler is None:
             return ToolResult.failure(call.id, f"Tool not found: {call.name}")
@@ -80,13 +80,13 @@ class ToolRegistry:
             return ToolResult.failure(call.id, f"Tool error: {exc}")
 
 
-ToolHandler = Callable[[Any, Any, ToolCall], Awaitable[str] | str]
+ToolHandler = Callable[[Any, Any, ToolUse], Awaitable[str] | str]
 
 
 def default_registry() -> ToolRegistry:
     registry = ToolRegistry()
 
-    def example_tool(_env: Any, state: Any, call: ToolCall) -> str:
+    def example_tool(_env: Any, state: Any, call: ToolUse) -> str:
         query = call.args.get("query")
         return f"No results for query: {query}"
 
@@ -99,7 +99,7 @@ V = TypeVar("V")
 R = TypeVar("R")
 
 
-def create_tool_execution_step(registry: Optional[ToolRegistry] = None) -> Step[S, ToolCall, ToolResult]:
+def create_tool_execution_step(registry: Optional[ToolRegistry] = None) -> Step[S, ToolUse, ToolResult]:
     """
     创建工具执行步骤函数
     
@@ -109,7 +109,7 @@ def create_tool_execution_step(registry: Optional[ToolRegistry] = None) -> Step[
     Returns:
         异步步骤函数，接收状态、工具调用和环境，返回步骤结果
     """
-    async def step(state: S, call: ToolCall, env: Any) -> Result[S, ToolResult]:
+    async def step(state: S, call: ToolUse, env: Any) -> Result[S, ToolResult]:
         """
         工具执行步骤
         

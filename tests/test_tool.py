@@ -4,12 +4,12 @@ import asyncio
 import pytest
 from typing import Dict, Any
 
-from cogent.core import ToolCall, ToolResult, ToolRegistry, ToolParameter, ToolDefinition
+from cogent.core import ToolUse, ToolResult, ToolRegistry, ToolParameter, ToolDefinition
 from cogent.core import create_tool_execution_step
 from cogent.core import Control, Result
 from cogent.core import Env
 from cogent.starter import ReActState
-from cogent.starter.react import react_act
+from cogent.starter.react import ReActPolicy, ReActConfig
 
 from fakes import FakeModel, FakeTools, FakeMemory
 
@@ -152,7 +152,7 @@ class TestToolRegistry:
         
         registry.register("test", test_tool)
         
-        call = ToolCall(id="1", name="test", args={"value": "test_value"})
+        call = ToolUse(id="1", name="test", args={"value": "test_value"})
         result = await registry.run(None, None, call)
         
         assert result.id == "1"
@@ -183,12 +183,12 @@ class TestToolRegistry:
         registry.register("test", test_tool, definition)
         
         # 测试成功执行
-        call = ToolCall(id="1", name="test", args={"value": "test_value"})
+        call = ToolUse(id="1", name="test", args={"value": "test_value"})
         result = await registry.run(None, None, call)
         assert not result.failed
         
         # 测试参数验证失败
-        call = ToolCall(id="2", name="test", args={})
+        call = ToolUse(id="2", name="test", args={})
         result = await registry.run(None, None, call)
         assert result.failed
         assert "Invalid parameters" in result.content
@@ -198,7 +198,7 @@ class TestToolRegistry:
         """测试执行不存在的工具"""
         registry = ToolRegistry()
         
-        call = ToolCall(id="1", name="nonexistent", args={})
+        call = ToolUse(id="1", name="nonexistent", args={})
         result = await registry.run(None, None, call)
         
         assert result.failed
@@ -214,7 +214,7 @@ class TestToolRegistry:
         
         registry.register("error", error_tool)
         
-        call = ToolCall(id="1", name="error", args={})
+        call = ToolUse(id="1", name="error", args={})
         result = await registry.run(None, None, call)
         
         assert result.failed
@@ -237,7 +237,7 @@ class TestCreateToolExecutionStep:
         step = create_tool_execution_step(registry)
         
         state = ReActState()
-        call = ToolCall(id="1", name="test", args={"value": "test_value"})
+        call = ToolUse(id="1", name="test", args={"value": "test_value"})
         
         # 创建一个简单的env
         fake_model = FakeModel([])
@@ -260,7 +260,7 @@ class TestCreateToolExecutionStep:
         step = create_tool_execution_step(registry)
         
         state = ReActState()
-        call = ToolCall(id="1", name="nonexistent", args={})
+        call = ToolUse(id="1", name="nonexistent", args={})
         
         # 创建一个简单的env
         fake_model = FakeModel([])
@@ -274,41 +274,43 @@ class TestCreateToolExecutionStep:
         assert "Tool not found" in str(result.control.reason)
 
 
-class TestToolCallHistory:
+class TestToolUseHistory:
     """测试工具调用历史记录"""
-    
+
     @pytest.mark.asyncio
     async def test_react_act_with_tool_call_history(self):
         """测试react_act函数的工具调用历史记录"""
         state = ReActState()
-        call = ToolCall(id="1", name="test", args={"value": "test_value"})
-        
+        call = ToolUse(id="1", name="test", args={"value": "test_value"})
+
         # 创建一个简单的env
         fake_model = FakeModel([])
         fake_tools = FakeTools({"test": lambda args: f"Result: {args['value']}"})
         env = Env(model=fake_model, tools=fake_tools)
-        
-        result = await react_act(state, call, env)
-        
+
+        policy = ReActPolicy(ReActConfig())
+        result = await policy.act(state, call, env)
+
         assert isinstance(result, Result)
         assert result.control.kind == "continue"
         assert isinstance(result.control.value, ToolResult)
         assert result.control.value.id == "1"
         assert "Result: test_value" in result.control.value.content
-    
+
     @pytest.mark.asyncio
     async def test_react_act_with_error(self):
         """测试react_act函数的错误处理和历史记录"""
         state = ReActState()
-        call = ToolCall(id="1", name="error", args={"value": "test_value"})
-        
+        call = ToolUse(id="1", name="error", args={"value": "test_value"})
+
         # 创建一个简单的env，工具会抛出异常
         fake_model = FakeModel([])
         fake_tools = FakeTools({"error": lambda args: 1 / 0})
         env = Env(model=fake_model, tools=fake_tools)
-        
-        result = await react_act(state, call, env)
-        
+
+        policy = ReActPolicy(ReActConfig())
+        result = await policy.act(state, call, env)
+
         assert isinstance(result, Result)
         assert result.control.kind == "error"
         assert "Tool execution failed" in str(result.control.reason)

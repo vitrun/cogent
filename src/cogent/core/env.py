@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Protocol, Optional
+
+
+class RuntimeContext(Protocol):
+    async def emit(self, chunk: str) -> None: ...
+    async def close(self) -> None: ...
 
 
 class ModelPort(Protocol):
     async def complete(self, prompt: str) -> str: ...
+    async def stream_complete(self, prompt: str, ctx: RuntimeContext) -> str: ...
 
 
 class ToolPort(Protocol):
@@ -20,4 +26,5 @@ class MemoryPort(Protocol):
 @dataclass
 class Env:
     model: ModelPort
-    tools: ToolPort
+    tools: ToolPort = None
+    runtime_context: Optional[RuntimeContext] = None

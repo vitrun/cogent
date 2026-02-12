@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TypeVar, Generic, Callable, Awaitable, Sequence
-from dataclasses import dataclass
+from typing import TypeVar, Generic, Callable, Awaitable, Sequence, Optional
+from dataclasses import dataclass, replace
 
 from .result import Control, Result
-from .env import Env
+from .env import Env, RuntimeContext
 
 
 S = TypeVar("S")
@@ -22,9 +22,39 @@ class Agent(Generic[S, V]):
 
     _run: Callable[[Env], Awaitable[Result[S, V]]]
 
-    async def run(self, env: Env) -> Result[S, V]:
-        """Run the agent and return a Result."""
-        return await self._run(env)
+    async def run(self, env: Env, on_stream_chunk: Optional[Callable[[str], None]] = None) -> Result[S, V]:
+        """Run the agent and return a Result.
+        
+        Args:
+            env: Environment with model and tools
+            on_stream_chunk: Optional callback for streaming LLM output
+        
+        Returns:
+            Result of agent execution
+        """
+        class SimpleRuntimeContext:
+            def __init__(self, callback: Callable[[str], None]):
+                self.callback = callback
+            
+            async def emit(self, chunk: str) -> None:
+                self.callback(chunk)
+            
+            async def close(self) -> None:
+                pass
+        
+        ctx = None
+        if on_stream_chunk:
+            ctx = SimpleRuntimeContext(on_stream_chunk)
+            env_with_ctx = replace(env, runtime_context=ctx)
+        
+        try:
+            if ctx:
+                return await self._run(env_with_ctx)
+            else:
+                return await self._run(env)
+        finally:
+            if ctx:
+                await ctx.close()
 
     def _create(self, run_func: Callable[[Env], Awaitable[Result[S, R]]]) -> Agent[S, R]:
         """Create a new agent instance."""

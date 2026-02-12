@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any
 
 from cogent.core import Env, MemoryPort, ModelPort, ToolPort
 from cogent.starter import ReActState
-
 
 @dataclass
 class FakeModel(ModelPort):
@@ -16,6 +16,18 @@ class FakeModel(ModelPort):
         if not self.responses:
             raise RuntimeError("No model responses available")
         return self.responses.pop(0)
+
+    async def stream_complete(self, prompt: str, ctx) -> str:
+        _ = prompt
+        if not self.responses:
+            raise RuntimeError("No model responses available")
+        response = self.responses.pop(0)
+        # 模拟token流
+        for char in response:
+            await ctx.emit(char)
+            await asyncio.sleep(0.01)
+        await ctx.close()
+        return response
 
 
 @dataclass
