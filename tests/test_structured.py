@@ -11,7 +11,7 @@ from cogent.structured import (
     parse_json_if_needed,
     make_cast_step,
 )
-from tests.fakes import make_fake_env
+from fakes import make_fake_env
 
 
 # Test schema implementations
@@ -131,8 +131,8 @@ def test_cast_step_with_json_string() -> None:
 
     result = asyncio.run(run_flow())
     assert result.control.kind == "continue"
-    assert isinstance(result.control.value, UserProfile)
-    assert result.control.value.name == "Alice"
+    assert isinstance(result.value, UserProfile)
+    assert result.value.name == "Alice"
 
 
 def test_cast_step_with_dict() -> None:
@@ -149,8 +149,8 @@ def test_cast_step_with_dict() -> None:
 
     result = asyncio.run(run_flow())
     assert result.control.kind == "continue"
-    assert isinstance(result.control.value, UserProfile)
-    assert result.control.value.name == "Bob"
+    assert isinstance(result.value, UserProfile)
+    assert result.value.name == "Bob"
 
 
 def test_cast_step_with_invalid_json() -> None:
@@ -166,7 +166,7 @@ def test_cast_step_with_invalid_json() -> None:
         return result
 
     result = asyncio.run(run_flow())
-    assert result.control.kind == "retry_dirty"
+    assert result.control.kind == "error"
     assert "Invalid JSON" in str(result.control.reason)
 
 
@@ -183,7 +183,7 @@ def test_cast_step_with_validation_error() -> None:
         return result
 
     result = asyncio.run(run_flow())
-    assert result.control.kind == "retry_dirty"
+    assert result.control.kind == "error"
     assert "email" in str(result.control.reason)
 
 
@@ -197,8 +197,8 @@ def test_agent_cast_with_json_string() -> None:
 
     result = asyncio.run(run_flow())
     assert result.control.kind == "continue"
-    assert isinstance(result.control.value, UserProfile)
-    assert result.control.value.name == "Dave"
+    assert isinstance(result.value, UserProfile)
+    assert result.value.name == "Dave"
 
 
 def test_agent_cast_with_dict() -> None:
@@ -211,8 +211,8 @@ def test_agent_cast_with_dict() -> None:
 
     result = asyncio.run(run_flow())
     assert result.control.kind == "continue"
-    assert isinstance(result.control.value, UserProfile)
-    assert result.control.value.name == "Eve"
+    assert isinstance(result.value, UserProfile)
+    assert result.value.name == "Eve"
 
 
 def test_agent_cast_chain_multiple() -> None:
@@ -228,7 +228,7 @@ def test_agent_cast_chain_multiple() -> None:
 
     result = asyncio.run(run_flow())
     assert result.control.kind == "continue"
-    assert result.control.value == 20  # 5 * 2 * 2
+    assert result.value == 20  # 5 * 2 * 2
 
 
 def test_agent_cast_insert_after_step() -> None:
@@ -238,7 +238,7 @@ def test_agent_cast_insert_after_step() -> None:
 
         async def tool_step(s, v, env):
             _ = (s, env)
-            return Result(s, control=Control.Continue('{"name": "Frank", "email": "frank@example.com"}'))
+            return Result(s, value='{"name": "Frank", "email": "frank@example.com"}', control=Control.Continue())
 
         schema = CallableSchema(parse_user_profile)
         flow = Agent.start("state", "initial")
@@ -248,8 +248,8 @@ def test_agent_cast_insert_after_step() -> None:
 
     result = asyncio.run(run_flow())
     assert result.control.kind == "continue"
-    assert isinstance(result.control.value, UserProfile)
-    assert result.control.value.name == "Frank"
+    assert isinstance(result.value, UserProfile)
+    assert result.value.name == "Frank"
 
 
 def test_cast_error_preserves_raw_value() -> None:

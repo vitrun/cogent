@@ -248,8 +248,8 @@ class TestCreateToolExecutionStep:
         
         assert isinstance(result, Result)
         assert result.control.kind == "continue"
-        assert isinstance(result.control.value, ToolResult)
-        assert result.control.value.content == "Result: test_value"
+        assert isinstance(result.value, ToolResult)
+        assert result.value.content == "Result: test_value"
     
     @pytest.mark.asyncio
     async def test_create_tool_execution_step_error(self):
@@ -293,9 +293,9 @@ class TestToolUseHistory:
 
         assert isinstance(result, Result)
         assert result.control.kind == "continue"
-        assert isinstance(result.control.value, ToolResult)
-        assert result.control.value.id == "1"
-        assert "Result: test_value" in result.control.value.content
+        assert isinstance(result.value, ToolResult)
+        assert result.value.id == "1"
+        assert "Result: test_value" in result.value.content
 
     @pytest.mark.asyncio
     async def test_react_act_with_error(self):

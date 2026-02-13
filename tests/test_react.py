@@ -31,7 +31,7 @@ def test_react_final_halts() -> None:
     result = asyncio.run(flow.run(env))
 
     assert result.control.kind == "halt"
-    assert result.control.value == "Answer"
+    assert result.value == "Answer"
 
 
 def test_react_tool_then_final() -> None:
@@ -52,7 +52,7 @@ def test_react_tool_then_final() -> None:
     result = asyncio.run(flow.run(env))
 
     assert result.control.kind == "halt"
-    assert result.control.value == "ok"
+    assert result.value == "ok"
     history_entries = result.state.history.snapshot()
     assert "Thought: use tool" in history_entries[0]
     assert any(entry.startswith("Observation: ") for entry in history_entries)

@@ -8,7 +8,7 @@ from typing import Any
 
 from cogent.core import Agent, Control, Result
 
-from . import MultiEnv, MultiState, merge_control
+from . import MultiEnv, MultiState
 
 
 def handoff(target: str) -> Agent[MultiState, Any]:
@@ -38,6 +38,7 @@ def handoff(target: str) -> Agent[MultiState, Any]:
 
         return Result(
             state=new_state,
+            value=result.value,
             control=result.control,
         )
 
@@ -95,41 +96,65 @@ def route(selector: Callable[[MultiState], str]) -> Agent[MultiState, Any]:
 def concurrent(
     agents: Sequence[Agent[MultiState, Any]],
     merge_state: Callable[[list[MultiState]], MultiState],
-) -> Agent[MultiState, list[Any]]:
+) -> Agent[MultiState, list[Result[MultiState, Any]]]:
     """Execute multiple agents concurrently.
 
     Semantics:
         - Execute all agents with the same initial env
-        - Gather all results
+        - Gather all results as list[Result]
         - Explicitly merge states using merge_state function
-        - Merge controls using merge_control logic
-        - Does NOT use return_exceptions=True (exceptions must be handled by agents)
+        - DO NOT merge control - returns raw branch Results
+        - DO NOT merge value - returns list of branch values
+        - Runtime owns trace - records parallel_begin/parallel_end
+
+    Trace behavior:
+        - Automatically records "parallel_begin"
+        - Records each branch as child event
+        - Records "parallel_end"
 
     Args:
         agents: Sequence of agents to execute concurrently.
         merge_state: Function to merge the resulting states from all agents.
 
     Returns:
-        Agent[MultiState, list[Any]]: A new agent that runs all input agents concurrently.
+        Agent[MultiState, list[Result[MultiState, Any]]]:
+            A new agent that runs all input agents concurrently.
+            Returns merged state and raw list of branch Results.
+            Developers must explicitly write a step to interpret branch Results.
     """
-    async def _run(env: MultiEnv) -> Result[MultiState, list[Any]]:
+    async def _run(env: MultiEnv) -> Result[MultiState, list[Result[MultiState, Any]]]:
+        trace = env.trace if hasattr(env, 'trace') else None
+
+        # Record parallel_begin
+        parallel_id = -1
+        if trace is not None:
+            parallel_id = trace.record("parallel_begin")
+
         # Execute all agents concurrently
         tasks = [agent.run(env) for agent in agents]
-        results = await asyncio.gather(*tasks)
+        results: list[Result[MultiState, Any]] = await asyncio.gather(*tasks)
 
-        # Extract states and controls
-        states = [r.state for r in results]
-        controls = [r.control.kind for r in results]
+        # Record each branch as child event
+        if trace is not None:
+            for i, result in enumerate(results):
+                trace.record(
+                    f"branch_{i}",
+                    info={"control": result.control.kind},
+                    parent_id=parallel_id,
+                )
 
-        # Merge controls
-        merged_control = merge_control(controls)
+        # Record parallel_end
+        if trace is not None:
+            trace.record("parallel_end", parent_id=parallel_id)
 
         # Merge states
+        states = [r.state for r in results]
         merged_state = merge_state(states)
 
         return Result(
             state=merged_state,
-            control=merged_control,
+            value=results,
+            control=Control.Continue(),
         )
 
     return Agent(_run)  # type: ignore[arg-type]

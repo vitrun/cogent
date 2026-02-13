@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, TypeVar, Generic, Literal
+from typing import Any, Generic, Literal, TypeVar
 
 S = TypeVar("S")
 V = TypeVar("V")
-T = TypeVar("T")
 
 
 @dataclass(frozen=True)
-class Control(Generic[T]):
+class Control:
     """
     Control flow directives for agent execution.
-    
+
     Kinds:
     - continue: Proceed to the next step with the provided value
     - halt: Stop execution and return the provided value
@@ -23,40 +22,45 @@ class Control(Generic[T]):
     - error: Stop execution with an error
     """
     kind: Literal["continue", "halt", "retry_clean", "retry_dirty", "error"]
-    value: T | None = None
     reason: Any | None = None
 
     @staticmethod
-    def Continue(value: Any | None = None) -> "Control[Any]":
-        return Control(kind="continue", value=value)
+    def Continue() -> Control:
+        return Control(kind="continue")
 
     @staticmethod
-    def Halt(value: Any) -> "Control[Any]":
-        return Control(kind="halt", value=value)
+    def Halt() -> Control:
+        return Control(kind="halt")
 
     @staticmethod
-    def RetryClean(reason: Any = None) -> "Control[None]":
+    def RetryClean(reason: Any = None) -> Control:
         return Control(kind="retry_clean", reason=reason)
 
     @staticmethod
-    def RetryDirty(reason: Any = None) -> "Control[None]":
+    def RetryDirty(reason: Any = None) -> Control:
         return Control(kind="retry_dirty", reason=reason)
 
     @staticmethod
-    def Error(reason: Any) -> "Control[None]":
+    def Error(reason: Any) -> Control:
         return Control(kind="error", reason=reason)
 
 
 @dataclass(frozen=True)
 class Result(Generic[S, V]):
     """
-    A container for state evolution with traceability. It captures execution evidence as state evolves.
+    A container for state evolution with traceability.
+
+    Attributes:
+        state: The next domain state
+        value: Output of this step
+        control: Local execution directive
     """
 
     state: S
-    control: Control[V] = Control.Continue()
+    value: V | None = None
+    control: Control = Control.Continue()
 
     def _require_value(self) -> V:
-        if self.control.value is None:
-            raise ValueError("StepResult has no value.")
-        return self.control.value
+        if self.value is None:
+            raise ValueError("Result has no value.")
+        return self.value

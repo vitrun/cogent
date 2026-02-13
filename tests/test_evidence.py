@@ -158,10 +158,10 @@ def test_evidence_monad_basic():
     traced_state = ReActState()
 
     # Create monad
-    monad = Result(traced_state, control=Control.Continue("test_value"))
+    monad = Result(traced_state, value="test_value", control=Control.Continue())
 
     assert monad.control.kind == "continue"
-    assert monad.control.value == "test_value"
+    assert monad.value == "test_value"
     assert monad.state.evidence.action == "start"
 
 
@@ -199,7 +199,7 @@ def test_workflow_integration():
             input_data={"query": "market_data"},
             info={"api": "market_data_v1", "cost": 0.05},
         )
-        return Result(new_state, control=Control.Continue("processed_data"))
+        return Result(new_state, value="processed_data", control=Control.Continue())
 
     async def apply_ml_model(state, data, env):
         _ = env
@@ -209,7 +209,7 @@ def test_workflow_integration():
             output_data={"trend": "bullish", "confidence": 0.85},
             info={"model": "trend_predictor_v2"},
         )
-        return Result(new_state, control=Control.Continue("analysis_results"))
+        return Result(new_state, value="analysis_results", control=Control.Continue())
 
     async def write_report(state, data, env):
         _ = env
@@ -219,7 +219,7 @@ def test_workflow_integration():
             output_data={"file": "market_report.pdf", "size": "1.2MB"},
             info={"author": "ai_analyst", "template": "market_analysis"},
         )
-        return Result(new_state, control=Control.Continue("report_generated"))
+        return Result(new_state, value="report_generated", control=Control.Continue())
 
     async def run_workflow():
         # Execute workflow

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol, Optional
+from typing import Any, Protocol
+
+from .trace import TraceContext
 
 
 class RuntimeContext(Protocol):
@@ -26,5 +28,7 @@ class MemoryPort(Protocol):
 @dataclass
 class Env:
     model: ModelPort
-    tools: ToolPort = None
-    runtime_context: Optional[RuntimeContext] = None
+    tools: ToolPort | None = None
+    memory: MemoryPort | None = None
+    runtime_context: RuntimeContext | None = None
+    trace: TraceContext | None = None

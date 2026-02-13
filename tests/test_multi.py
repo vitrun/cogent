@@ -27,7 +27,7 @@ def test_handoff_changes_current() -> None:
                     shared=env.state.shared,
                     locals=env.state.locals,
                 )
-                return Result(state=new_state, control=Control.Continue(name))
+                return Result(state=new_state, value=name, control=Control.Continue())
             return Agent(_run)  # type: ignore
 
         registry = AgentRegistry({"a": make_agent("a"), "b": make_agent("b")})
@@ -66,7 +66,7 @@ def test_route_selects_target() -> None:
                     shared=env.state.shared,
                     locals=env.state.locals,
                 )
-                return Result(state=new_state, control=Control.Continue(name))
+                return Result(state=new_state, value=name, control=Control.Continue())
             return Agent(_run)  # type: ignore
 
         registry = AgentRegistry({"foo": make_agent("foo"), "bar": make_agent("bar")})
@@ -91,7 +91,7 @@ def test_concurrent_merges_states() -> None:
                     shared=env.state.shared + (f"from-{name}",),
                     locals=env.state.locals,
                 )
-                return Result(state=new_state, control=Control.Continue(name))
+                return Result(state=new_state, value=name, control=Control.Continue())
             return Agent(_run)  # type: ignore
 
         def merge(states: list[MultiState]) -> MultiState:

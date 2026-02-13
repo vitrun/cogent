@@ -2,14 +2,11 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field, replace
-from typing import Any, TypeVar, Self, Generic
+from typing import Any, Generic, Self, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from ..core import Control, Result
-from ..core import Agent
-from ..core import Env
-from ..core import ToolUse, ToolResult
+from ..core import Agent, Control, Env, Result, ToolResult, ToolUse
 from ..core.memory import Memory, SimpleMemory
 from .evidence import Evidence
 from .protocols import ReActStateProtocol
@@ -116,7 +113,7 @@ async def react_decide(state: ReActStateProtocol[S], model_output: str, env: Env
     )
 
     if parsed.final:
-        return Result(next_state, control=Control.Halt(parsed.final))
+        return Result(next_state, value=parsed.final, control=Control.Halt())
 
     if parsed.action:
         tool_call = ToolUse(
@@ -124,7 +121,7 @@ async def react_decide(state: ReActStateProtocol[S], model_output: str, env: Env
             name=parsed.action,
             args=action_input,
         )
-        return Result(next_state, control=Control.Continue(tool_call))
+        return Result(next_state, value=tool_call, control=Control.Continue())
 
     return Result(next_state, control=Control.Error("Missing action or final"))
 
@@ -156,8 +153,8 @@ class ReActPolicy(Generic[S]):
             f"Scratchpad:\n{state.scratchpad}{task_context}\n"
         )
         next_state = state.with_evidence("prompt", info={})
-        return Result(next_state, control=Control.Continue(prompt))
-    
+        return Result(next_state, value=prompt, control=Control.Continue())
+
     async def think(self, state: S, prompt: str, env: Env) -> Result[S, str]:
         """Think step that calls the model to generate a response."""
         if env.runtime_context:
@@ -165,12 +162,12 @@ class ReActPolicy(Generic[S]):
         else:
             response = await env.model.complete(prompt)
         next_state = state.with_evidence("think")
-        return Result(next_state, control=Control.Continue(response))
-    
+        return Result(next_state, value=response, control=Control.Continue())
+
     async def decide(self, state: S, model_output: str, env: Env) -> Result[S, ToolUse | str]:
         """Decide step that parses model output and decides on action or final answer."""
         return await react_decide(state, model_output, env)
-    
+
     async def act(self, state: S, call: ToolUse | str, env: Env) -> Result[S, ToolResult]:
         """Act step that executes a tool call."""
         if not isinstance(call, ToolUse):
@@ -179,18 +176,18 @@ class ReActPolicy(Generic[S]):
         try:
             content = await env.tools.call(call.name, call.args)
             result = ToolResult.success(call.id, str(content))
-            return Result(next_state, control=Control.Continue(result))
+            return Result(next_state, value=result, control=Control.Continue())
         except Exception as e:
             result = ToolResult.failure(call.id, str(e))
             return Result(next_state, control=Control.Error(f"Tool execution failed: {e}"))
-    
+
     async def observe(self, state: S, result: ToolResult, env: Env) -> Result[S, str]:
         """Observe step that processes tool execution results."""
         observation = f"Observation: {result.content}"
         next_state = state.with_history(observation)
         next_state = self._append_scratchpad(next_state, observation)
         next_state = next_state.with_evidence("observation", info={"tool_result_id": result.id})
-        return Result(next_state, control=Control.Continue(observation))
+        return Result(next_state, value=observation, control=Control.Continue())
     
     def _append_scratchpad(self, state: S, line: str) -> S:
         """Helper method to append a line to the scratchpad."""
@@ -212,7 +209,7 @@ class ReActPolicy(Generic[S]):
             ) -> Result[S, str]:
                 next_step = step_index + 1
                 if next_step >= self.config.max_steps:
-                    return Result(next_state, control=Control.Halt(value))
+                    return Result(next_state, value=value, control=Control.Halt())
                 # Tail-recursive call - creates new Agent instance
                 result = await loop(next_state, next_step).run(env)
                 return result

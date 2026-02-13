@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Awaitable, Callable
-from typing import Any, Self, Dict, Optional, TypeVar, Generic
-from pydantic import BaseModel, Field
+from typing import Any, Self, TypeVar
+
+from pydantic import BaseModel
 
 from .agent import Step
 from .result import Control, Result
@@ -34,15 +35,15 @@ class ToolParameter(BaseModel):
     type: str
     description: str
     required: bool
-    default: Optional[Any] = None
+    default: Any | None = None
 
 
 class ToolDefinition(BaseModel):
     name: str
     description: str
-    parameters: Dict[str, ToolParameter]
+    parameters: dict[str, ToolParameter]
 
-    def validate_parameters(self, params: Dict[str, Any]) -> bool:
+    def validate_parameters(self, params: dict[str, Any]) -> bool:
         for param_name, param in self.parameters.items():
             if param.required and param_name not in params:
                 return False
@@ -54,12 +55,12 @@ class ToolRegistry:
         self._tools: dict[str, ToolHandler] = {}
         self._definitions: dict[str, ToolDefinition] = {}
 
-    def register(self, name: str, handler: ToolHandler, definition: Optional[ToolDefinition] = None) -> None:
+    def register(self, name: str, handler: ToolHandler, definition: ToolDefinition | None = None) -> None:
         self._tools[name] = handler
         if definition:
             self._definitions[name] = definition
 
-    def get_definition(self, name: str) -> Optional[ToolDefinition]:
+    def get_definition(self, name: str) -> ToolDefinition | None:
         return self._definitions.get(name)
 
     async def run(self, env: Any, state: Any, call: ToolUse) -> ToolResult:
@@ -99,7 +100,7 @@ V = TypeVar("V")
 R = TypeVar("R")
 
 
-def create_tool_execution_step(registry: Optional[ToolRegistry] = None) -> Step[S, ToolUse, ToolResult]:
+def create_tool_execution_step(registry: ToolRegistry | None = None) -> Step[S, ToolUse, ToolResult]:
     """
     创建工具执行步骤函数
     
@@ -126,7 +127,7 @@ def create_tool_execution_step(registry: Optional[ToolRegistry] = None) -> Step[
             result = await used_registry.run(env, state, call)
             if result.failed:
                 return Result(state, control=Control.Error(result.content))
-            return Result(state, control=Control.Continue(result))
+            return Result(state, value=result, control=Control.Continue())
         except Exception as exc:
             return Result(state, control=Control.Error(f"Tool execution failed: {exc}"))
     

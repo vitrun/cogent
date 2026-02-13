@@ -2,14 +2,70 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import asyncio
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
-from cogent.core import Agent, Control, Env
+from cogent.core import Agent, Control, Env, Result
 
 S = TypeVar("S")
 V = TypeVar("V")
+
+
+def concurrent(
+    agents: Sequence[Agent[MultiState, Any]],
+    merge_state: Callable[[list[MultiState]], MultiState],
+) -> Agent[MultiState, list[Result[MultiState, Any]]]:
+    """Execute multiple agents concurrently.
+
+    Returns merged state and raw list of branch Results.
+    Developers must explicitly write a step to interpret branch Results.
+    """
+    async def _run(env: MultiEnv) -> Result[MultiState, list[Result[MultiState, Any]]]:
+        trace = env.trace if hasattr(env, 'trace') else None
+
+        # Record parallel_begin
+        parallel_id = -1
+        if trace is not None:
+            parallel_id = trace.record("parallel_begin")
+
+        # Execute all agents concurrently
+        tasks = [agent.run(env) for agent in agents]
+        results: list[Result[MultiState, Any]] = await asyncio.gather(*tasks)
+
+        # Record each branch as child event
+        if trace is not None:
+            for i, result in enumerate(results):
+                trace.record(
+                    f"branch_{i}",
+                    info={"control": result.control.kind},
+                    parent_id=parallel_id,
+                )
+
+        # Record parallel_end
+        if trace is not None:
+            trace.record("parallel_end", parent_id=parallel_id)
+
+        # Merge states
+        states = [r.state for r in results]
+        merged_state = merge_states(states)
+
+        return Result(
+            state=merged_state,
+            value=results,
+            control=Control.Continue(),
+        )
+
+    return Agent(_run)  # type: ignore[arg-type]
+
+
+def merge_states(states: list[MultiState]) -> MultiState:
+    """Default state merge - combines shared messages."""
+    shared = ()
+    for s in states:
+        shared = shared + s.shared
+    return MultiState(current="merged", shared=shared, locals={})
 
 
 @dataclass(frozen=True)
@@ -69,12 +125,3 @@ class MultiEnv(Env):
             registry=self.registry,
             state=new_state,
         )
-
-
-def merge_control(kinds: list[str]) -> Control:
-    """Merge control kinds according to precedence: error > retry > continue."""
-    if "error" in kinds:
-        return Control.Error("one or more agents failed")
-    if "retry_clean" in kinds or "retry_dirty" in kinds:
-        return Control.RetryClean()
-    return Control.Continue()

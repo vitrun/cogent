@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from typing import Any, Generic, TypeVar
@@ -27,36 +28,59 @@ class Agent(Generic[S, V]):
 
     async def run(self, env: Env, on_stream_chunk: Callable[[str], None] | None = None) -> Result[S, V]:
         """Run the agent and return a Result.
-        
+
         Args:
             env: Environment with model and tools
             on_stream_chunk: Optional callback for streaming LLM output
-        
+
         Returns:
             Result of agent execution
+
+        Note: This method does NOT implement retry semantics.
+        Retry is strictly step-level logic handled within each step function.
         """
         class SimpleRuntimeContext:
             def __init__(self, callback: Callable[[str], None]):
                 self.callback = callback
-            
+
             async def emit(self, chunk: str) -> None:
                 self.callback(chunk)
-            
+
             async def close(self) -> None:
                 pass
-        
-        ctx = None
+
+        ctx: SimpleRuntimeContext | None = None
+        env_to_run = env
         if on_stream_chunk:
             ctx = SimpleRuntimeContext(on_stream_chunk)
-            env_with_ctx = replace(env, runtime_context=ctx)
-        
+            env_to_run = replace(env, runtime_context=ctx)
+
+        # Get trace context
+        trace = env.trace if env else None
+        step_id = -1
+
         try:
-            if ctx:
-                return await self._run(env_with_ctx)
-            else:
-                return await self._run(env)
+            # Record step_begin if tracing enabled
+            if trace is not None:
+                step_id = trace.record("step_begin")
+
+            # Execute step exactly once - no retry loop at runtime level
+            start_time = time.perf_counter()
+            result = await self._run(env_to_run)
+            duration_ms = (time.perf_counter() - start_time) * 1000
+
+            # Record step_end with control info
+            if trace is not None:
+                trace.record(
+                    "step_end",
+                    info={"control": result.control.kind},
+                    parent_id=step_id,
+                    duration_ms=duration_ms,
+                )
+
+            return result
         finally:
-            if ctx:
+            if ctx is not None:
                 await ctx.close()
 
     def _create(self, run_func: Callable[[Env], Awaitable[Result[S, R]]]) -> Agent[S, R]:
@@ -64,56 +88,43 @@ class Agent(Generic[S, V]):
         return Agent(_run=run_func)
 
     def then(self, func: Step[S, V, R]) -> Agent[S, R]:
-        """
-        Chain a step function to the agent.
-        
+        """Chain a step function to the agent.
+
         Args:
             func: Async function that takes state, value, and env, returns Result
-            
+
         Returns:
             New agent with the chained step
-            
-        Retry behavior:
-        - retry_clean: Uses initial state and memory from step start (rollback)
-        - retry_dirty: Uses latest state and memory from previous attempt (adapt)
-        - Default max retry attempts: 3
+
+        Note: This method does NOT implement retry semantics.
+        Each step is fully responsible for handling its own retry_clean / retry_dirty logic.
+        Runtime only interprets Control and records trace.
         """
         async def new_run(env: Env) -> Result[S, R]:
             current_flow = await self.run(env)
             if current_flow.control.kind == "error":
                 return Result(
-                    current_flow.state,
+                    state=current_flow.state,
+                    value=current_flow.value,
                     control=current_flow.control,
-                )
+                )  # type: ignore[return-value]
             if current_flow.control.kind != "continue":
+                # Preserve value when propagating non-continue controls
                 return Result(
-                    current_flow.state,
+                    state=current_flow.state,
+                    value=current_flow.value,
                     control=current_flow.control,
-                )
+                )  # type: ignore[return-value]
             try:
                 value = current_flow._require_value()
-                # Save initial state for retry_clean
-                initial_state = current_flow.state
+                # Execute step exactly once - retry is step-internal
                 step_result = await func(current_flow.state, value, env)
-                
-                max_retries = 3
-                retry_count = 0
-                
-                while step_result.control.kind in ("retry_clean", "retry_dirty") and retry_count < max_retries:
-                    retry_count += 1
-                    if step_result.control.kind == "retry_clean":
-                        # Use initial state for retry_clean
-                        step_result = await func(initial_state, value, env)
-                    else:  # retry_dirty
-                        # Use latest state for retry_dirty
-                        step_result = await func(step_result.state, value, env)
-                
                 return step_result
             except Exception as exc:
                 return Result(
-                    current_flow.state,
+                    state=current_flow.state,
                     control=Control.Error(exc),
-                )
+                )  # type: ignore[return-value]
 
         return self._create(new_run)
 
@@ -122,25 +133,29 @@ class Agent(Generic[S, V]):
             current_flow = await self.run(env)
             if current_flow.control.kind == "error":
                 return Result(
-                    current_flow.state,
+                    state=current_flow.state,
+                    value=current_flow.value,
                     control=current_flow.control,
-                )
+                )  # type: ignore[return-value]
             if current_flow.control.kind != "continue":
+                # Preserve value when propagating non-continue controls
                 return Result(
-                    current_flow.state,
+                    state=current_flow.state,
+                    value=current_flow.value,
                     control=current_flow.control,
-                )
+                )  # type: ignore[return-value]
             try:
                 value = current_flow._require_value()
                 return Result(
-                    current_flow.state,
-                    control=Control.Continue(func(value)),
+                    state=current_flow.state,
+                    value=func(value),
+                    control=Control.Continue(),
                 )
             except Exception as exc:
                 return Result(
-                    current_flow.state,
+                    state=current_flow.state,
                     control=Control.Error(exc),
-                )
+                )  # type: ignore[return-value]
 
         return self._create(new_run)
 
@@ -152,18 +167,20 @@ class Agent(Generic[S, V]):
             current_flow = await self.run(env)
             if current_flow.control.kind != "error":
                 return Result(
-                    current_flow.state,
+                    state=current_flow.state,
+                    value=current_flow.value,
                     control=current_flow.control,
                 )
             try:
                 recovered_value = recovery_func(current_flow.control.reason)
                 return Result(
-                    current_flow.state,
-                    control=Control.Continue(recovered_value),
+                    state=current_flow.state,
+                    value=recovered_value,
+                    control=Control.Continue(),
                 )
             except Exception as exc:
                 return Result(
-                    current_flow.state,
+                    state=current_flow.state,
                     control=Control.Error(exc),
                 )
 
@@ -173,8 +190,7 @@ class Agent(Generic[S, V]):
         """Cast the agent's value to a new type using a schema.
 
         This method validates and transforms the agent's output value using
-        the provided schema. On validation failure, the step will be
-        retried with adaptation (retry_dirty) up to 3 times.
+        the provided schema.
 
         Args:
             schema: The output schema to validate against
@@ -193,10 +209,11 @@ class Agent(Generic[S, V]):
     @staticmethod
     def start(state: S, initial_value: V | None = None) -> Agent[S, V]:
         async def run_func(_: Env) -> Result[S, V]:
-            value = initial_value if initial_value is not None else state
-            return Result(state, control=Control.Continue(value))
+            if initial_value is not None:
+                return Result(state, value=initial_value, control=Control.Continue())
+            # When initial_value is None, use state as value (type cast for V=S case)
+            return Result(state, value=state, control=Control.Continue())  # type: ignore[arg-type]
 
         return Agent(_run=run_func)
-
 
 
