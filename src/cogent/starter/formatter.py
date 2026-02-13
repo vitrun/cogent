@@ -1,13 +1,11 @@
-# -*- coding: utf-8 -*-
 """Formatter steps for Cogent."""
 
 from typing import Any, TypeVar
 
-from ..core import Control, Result
-from ..core import Env
-from .protocols import ReActStateProtocol
+from ..core import Control, Env, Result
 from ..provider import Message
 from ..provider.litellm import LiteLLMFormatter
+from .protocols import ReActStateProtocol
 
 S = TypeVar("S")
 

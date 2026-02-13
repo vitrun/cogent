@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 """Base classes for provider formatters."""
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Dict
+from typing import Any
 
 from .models import Message
 
@@ -16,11 +15,11 @@ class FormatterBase(ABC):
     support_vision: bool = False
     """Whether support vision data"""
 
-    supported_blocks: List[type] = []
+    supported_blocks: list[type] = []
     """The list of supported message blocks"""
 
     @abstractmethod
-    async def format(self, messages: List[Message]) -> List[Dict[str, Any]]:
+    async def format(self, messages: list[Message]) -> list[dict[str, Any]]:
         """Format messages into provider-specific API format.
         
         Args:
@@ -33,7 +32,7 @@ class FormatterBase(ABC):
         """
         pass
     
-    def assert_list_of_messages(self, messages: List[Message]) -> None:
+    def assert_list_of_messages(self, messages: list[Message]) -> None:
         """Assert that the input is a list of Message objects.
         
         Args:

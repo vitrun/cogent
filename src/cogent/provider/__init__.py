@@ -1,13 +1,12 @@
-# -*- coding: utf-8 -*-
 """Provider-specific implementations for Cogent."""
 
 from .base import FormatterBase
 from .models import (
+    ImageBlock,
     Message,
     TextBlock,
-    ImageBlock,
-    ToolUseBlock,
     ToolResultBlock,
+    ToolUseBlock,
 )
 
 __all__ = [

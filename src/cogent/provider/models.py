@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 """Common message models for provider formatters."""
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -15,7 +14,7 @@ class TextBlock:
 @dataclass(frozen=True)
 class ImageBlock:
     """Image content block."""
-    source: Dict[str, Any]
+    source: dict[str, Any]
     type: str = "image"
 
 
@@ -24,7 +23,7 @@ class ToolUseBlock:
     """Tool use content block."""
     id: str
     name: str
-    input: Dict[str, Any]
+    input: dict[str, Any]
     type: str = "tool_use"
 
 
@@ -32,7 +31,7 @@ class ToolUseBlock:
 class ToolResultBlock:
     """Tool result content block."""
     tool_use_id: str
-    content: List[Dict[str, Any]]
+    content: list[dict[str, Any]]
     type: str = "tool_result"
 
 
@@ -40,10 +39,10 @@ class ToolResultBlock:
 class Message:
     """Base message model."""
     role: str
-    content: Union[str, List[Union[TextBlock, ImageBlock, ToolUseBlock, ToolResultBlock]]]
-    name: Optional[str] = None
+    content: str | list[TextBlock | ImageBlock | ToolUseBlock | ToolResultBlock]
+    name: str | None = None
     
-    def get_content_blocks(self) -> List[Union[TextBlock, ImageBlock, ToolUseBlock, ToolResultBlock]]:
+    def get_content_blocks(self) -> list[TextBlock | ImageBlock | ToolUseBlock | ToolResultBlock]:
         """Get content blocks from the message.
         
         Returns:

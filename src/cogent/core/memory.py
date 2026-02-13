@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Protocol, TypeVar
+from typing import Any, Protocol
 
 
 class TrimPolicy(Protocol):

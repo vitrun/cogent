@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """LiteLLM provider module."""
 
 from .formatter import LiteLLMFormatter

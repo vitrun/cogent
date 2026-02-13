@@ -1,15 +1,14 @@
-# -*- coding: utf-8 -*-
 """LiteLLM-specific formatter implementation."""
 
-from typing import Any, List, Dict
+from typing import Any
 
 from ..base import FormatterBase
 from ..models import (
+    ImageBlock,
     Message,
     TextBlock,
-    ImageBlock,
-    ToolUseBlock,
     ToolResultBlock,
+    ToolUseBlock,
 )
 
 
@@ -26,7 +25,7 @@ class LiteLLMFormatter(FormatterBase):
     support_vision: bool = True
     """Whether support vision data"""
 
-    supported_blocks: List[type] = [
+    supported_blocks: list[type] = [
         TextBlock,
         ImageBlock,
         ToolUseBlock,
@@ -36,8 +35,8 @@ class LiteLLMFormatter(FormatterBase):
 
     async def format(
         self,
-        messages: List[Message],
-    ) -> List[Dict[str, Any]]:
+        messages: list[Message],
+    ) -> list[dict[str, Any]]:
         """Format messages into LiteLLM API format.
         
         Args:
@@ -50,7 +49,7 @@ class LiteLLMFormatter(FormatterBase):
         """
         self.assert_list_of_messages(messages)
 
-        formatted_messages: List[dict] = []
+        formatted_messages: list[dict] = []
         for msg in messages:
             content_blocks = []
             function_calls = []

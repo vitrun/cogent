@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, TypeVar, Protocol, Self
+from typing import Any, Protocol, TypeVar
 
 from ..core.memory import Memory
 
