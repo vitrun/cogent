@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-import asyncio
-from typing import TypeVar, Generic, Callable, Awaitable, Sequence, Optional
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
+from typing import Any, Generic, TypeVar
 
+from cogent.structured.cast import make_cast_step
+from cogent.structured.schema import OutputSchema
+
+from .env import Env
 from .result import Control, Result
-from .env import Env, RuntimeContext
-
 
 S = TypeVar("S")
 V = TypeVar("V")
 R = TypeVar("R")
+T = TypeVar("T")
 
 
 Step = Callable[[S, V, Env], Awaitable[Result[S, R]]]
@@ -22,7 +25,7 @@ class Agent(Generic[S, V]):
 
     _run: Callable[[Env], Awaitable[Result[S, V]]]
 
-    async def run(self, env: Env, on_stream_chunk: Optional[Callable[[str], None]] = None) -> Result[S, V]:
+    async def run(self, env: Env, on_stream_chunk: Callable[[str], None] | None = None) -> Result[S, V]:
         """Run the agent and return a Result.
         
         Args:
@@ -165,6 +168,27 @@ class Agent(Generic[S, V]):
                 )
 
         return self._create(new_run)
+
+    def cast(self, schema: OutputSchema[T]) -> Agent[S, T]:
+        """Cast the agent's value to a new type using a schema.
+
+        This method validates and transforms the agent's output value using
+        the provided schema. On validation failure, the step will be
+        retried with adaptation (retry_dirty) up to 3 times.
+
+        Args:
+            schema: The output schema to validate against
+
+        Returns:
+            New agent with the value type transformed to T
+
+        Example:
+            >>> from cogent.structured import CallableSchema
+            >>> def parse_user(data):
+            ...     return UserProfile(**data)
+            >>> agent = agent.cast(CallableSchema(parse_user))
+        """
+        return self.then(make_cast_step(schema))
 
     @staticmethod
     def start(state: S, initial_value: V | None = None) -> Agent[S, V]:
