@@ -10,8 +10,6 @@ from typing import Any, Generic, TypeVar
 from cogent.kernel.result import Control, Result
 from cogent.kernel.types import ToolUse
 from cogent.ports.env import Env
-from cogent.structured.cast import make_cast_step
-from cogent.structured.schema import OutputSchema
 
 S = TypeVar("S")
 V = TypeVar("V")
@@ -22,11 +20,36 @@ T = TypeVar("T")
 Step = Callable[[S, V, Env], Awaitable[Result[S, R]]]
 
 
+# Extension registry - class-level storage for Agent capabilities
+_extensions_registry: dict[str, Callable] = {}
+
+
 @dataclass(frozen=True)
 class Agent(Generic[S, V]):
-    """Agent monad - a wrapper around Kernel that includes Env interaction."""
+    """Agent monad - a wrapper around Kernel that includes Env interaction.
+
+    Capabilities can be registered via register_op() for extensibility.
+    """
 
     _run: Callable[[Env], Awaitable[Result[S, V]]]
+
+    @classmethod
+    def register_op(cls, name: str, fn: Callable[..., Any]) -> None:
+        """Register an operation capability on the Agent class.
+
+        Args:
+            name: The operation name (e.g., "cast")
+            fn: The function to register
+        """
+        _extensions_registry[name] = fn
+
+    def __getattr__(self, name: str) -> Any:
+        """Allow calling registered extension methods."""
+        if name in _extensions_registry:
+            fn = _extensions_registry[name]
+            # Bind the function to this instance
+            return lambda *args, **kwargs: fn(self, *args, **kwargs)
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     async def run(self, env: Env, on_stream_chunk: Callable[[str], None] | None = None) -> Result[S, V]:
         """Run the agent and return a Result.
@@ -161,8 +184,6 @@ class Agent(Generic[S, V]):
 
         return self._create(new_run)
 
-
-
     def recover(self, recovery_func: Callable[[Any], V]) -> Agent[S, V]:
         """Recover from error with recovery function."""
         async def new_run(env: Env) -> Result[S, V]:
@@ -187,26 +208,6 @@ class Agent(Generic[S, V]):
                 )
 
         return self._create(new_run)
-
-    def cast(self, schema: OutputSchema[T]) -> Agent[S, T]:
-        """Cast the agent's value to a new type using a schema.
-
-        This method validates and transforms the agent's output value using
-        the provided schema.
-
-        Args:
-            schema: The output schema to validate against
-
-        Returns:
-            New agent with the value type transformed to T
-
-        Example:
-            >>> from cogent.structured import CallableSchema
-            >>> def parse_user(data):
-            ...     return UserProfile(**data)
-            >>> agent = agent.cast(CallableSchema(parse_user))
-        """
-        return self.then(make_cast_step(schema))
 
     @staticmethod
     def start(state: S, initial_value: V | None = None) -> Agent[S, V]:

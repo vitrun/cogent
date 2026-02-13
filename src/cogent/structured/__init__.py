@@ -4,6 +4,8 @@ This module provides the Agent.cast() primitive for type-level value
 convergence in the agent monad.
 """
 
+# Import agent_ext to register capabilities
+from . import agent_ext  # noqa: F401
 from .cast import make_cast_step
 from .errors import CastError
 from .parser import parse_json_if_needed
