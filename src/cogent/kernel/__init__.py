@@ -1,6 +1,7 @@
 """Kernel layer - pure abstractions for Cogent."""
 
 from cogent.kernel.agent import Agent
+from cogent.kernel.ports import Env, MemoryPort, ModelPort, SinkPort, ToolPort
 from cogent.kernel.result import Control, Result
 from cogent.kernel.trace import Evidence, TraceContext
 from cogent.kernel.types import ToolDefinition, ToolParameter, ToolResult, ToolUse
@@ -15,4 +16,10 @@ __all__ = [
     "ToolResult",
     "ToolDefinition",
     "ToolParameter",
+    # Ports
+    "Env",
+    "SinkPort",
+    "ModelPort",
+    "ToolPort",
+    "MemoryPort",
 ]

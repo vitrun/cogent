@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from cogent.ports.model import Message
+from cogent.model import Message
 
 
 class FormatterBase(ABC):

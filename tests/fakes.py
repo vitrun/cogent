@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from cogent.agents import ReActState
-from cogent.ports.env import Env, MemoryPort, ModelPort, Sink, ToolPort
+from cogent.kernel.ports import MemoryPort, ModelPort, SinkPort, ToolPort
+from cogent.runtime import Env
 
 
 @dataclass

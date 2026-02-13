@@ -1,4 +1,4 @@
-"""Port definitions for Cogent environment."""
+"""Port protocols for Cogent - pure abstractions."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any, Protocol
 from cogent.kernel.trace import TraceContext
 
 
-class Sink(Protocol):
+class SinkPort(Protocol):
     """Output streaming port."""
 
     async def send(self, chunk: Any) -> None:
@@ -24,7 +24,7 @@ class ModelPort(Protocol):
     """Model API port."""
 
     async def complete(self, prompt: str) -> str: ...
-    async def stream_complete(self, prompt: str, ctx: Sink) -> str: ...
+    async def stream_complete(self, prompt: str, ctx: SinkPort) -> str: ...
 
 
 class ToolPort(Protocol):
@@ -60,8 +60,10 @@ class MemoryPort(Protocol):
 @dataclass
 class Env:
     """Environment aggregation - combines all ports."""
+
     model: ModelPort
     tools: ToolPort | None = None
     memory: MemoryPort | None = None
     trace: TraceContext | None = None
-    sink: Sink | None = None
+    sink: SinkPort | None = None
+    runtime_context: Any = None  # For streaming support

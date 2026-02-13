@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from cogent.ports.model import (
+from cogent.model import (
     ImageBlock,
     Message,
     TextBlock,

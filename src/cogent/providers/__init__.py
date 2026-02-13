@@ -1,6 +1,6 @@
 """Provider-specific implementations for Cogent."""
 
-from cogent.ports.model import (
+from cogent.model import (
     ImageBlock,
     Message,
     TextBlock,

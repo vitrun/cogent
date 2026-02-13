@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 from dataclasses import dataclass
-from cogent.ports.env import Env, ModelPort, ToolPort
+from cogent.kernel.ports import ModelPort, ToolPort
+from cogent.runtime import Env
 from cogent.runtime.memory.in_memory import Context, InMemoryContext
 
 

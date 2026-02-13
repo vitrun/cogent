@@ -9,9 +9,9 @@ from typing import Any, Generic, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from cogent.kernel.agent import Agent
+from cogent.kernel.ports import Env
 from cogent.kernel.result import Control, Result
 from cogent.kernel.types import ToolResult, ToolUse
-from cogent.ports.env import Env
 
 from .protocols import ReActStateProtocol
 

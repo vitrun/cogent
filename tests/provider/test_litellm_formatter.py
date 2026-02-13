@@ -1,5 +1,5 @@
 import asyncio
-from cogent.ports.model import (
+from cogent.model import (
     Message,
     TextBlock,
     ImageBlock,

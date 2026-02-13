@@ -3,7 +3,7 @@ import asyncio
 from cogent.combinators import AgentRegistry, MultiEnv, MultiState
 from cogent.combinators.ops import concurrent, emit, handoff, route
 from cogent.kernel import Agent, Control, Result
-from cogent.ports.env import ModelPort
+from cogent.kernel.ports import ModelPort
 
 
 class MockModel(ModelPort):

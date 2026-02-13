@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
 from cogent.kernel import Agent, Control, Result
-from cogent.ports.env import Env
+from cogent.kernel.ports import Env
 
 S = TypeVar("S")
 V = TypeVar("V")

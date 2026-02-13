@@ -1,4 +1,4 @@
-"""Message models for provider formatters."""
+"""Message blocks for provider formatters."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -7,6 +7,7 @@ from typing import Any
 @dataclass(frozen=True)
 class TextBlock:
     """Text content block."""
+
     text: str
     type: str = "text"
 
@@ -14,6 +15,7 @@ class TextBlock:
 @dataclass(frozen=True)
 class ImageBlock:
     """Image content block."""
+
     source: dict[str, Any]
     type: str = "image"
 
@@ -21,6 +23,7 @@ class ImageBlock:
 @dataclass(frozen=True)
 class ToolUseBlock:
     """Tool use content block."""
+
     id: str
     name: str
     input: dict[str, Any]
@@ -30,6 +33,7 @@ class ToolUseBlock:
 @dataclass(frozen=True)
 class ToolResultBlock:
     """Tool result content block."""
+
     tool_use_id: str
     content: list[dict[str, Any]]
     type: str = "tool_result"
@@ -38,6 +42,7 @@ class ToolResultBlock:
 @dataclass(frozen=True)
 class Message:
     """Base message model."""
+
     role: str
     content: str | list[TextBlock | ImageBlock | ToolUseBlock | ToolResultBlock]
     name: str | None = None

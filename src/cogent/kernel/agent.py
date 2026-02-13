@@ -8,8 +8,8 @@ from dataclasses import dataclass, replace
 from typing import Any, Generic, TypeVar
 
 from cogent.kernel.result import Control, Result
+from cogent.kernel.ports import Env
 from cogent.kernel.types import ToolUse
-from cogent.ports.env import Env
 
 S = TypeVar("S")
 V = TypeVar("V")
