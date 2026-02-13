@@ -1,4 +1,4 @@
-"""Common message models for provider formatters."""
+"""Message models for provider formatters."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -41,14 +41,9 @@ class Message:
     role: str
     content: str | list[TextBlock | ImageBlock | ToolUseBlock | ToolResultBlock]
     name: str | None = None
-    
+
     def get_content_blocks(self) -> list[TextBlock | ImageBlock | ToolUseBlock | ToolResultBlock]:
-        """Get content blocks from the message.
-        
-        Returns:
-            List[Union[TextBlock, ImageBlock, ToolUseBlock, ToolResultBlock]]:
-                List of content blocks.
-        """
+        """Get content blocks from the message."""
         if isinstance(self.content, str):
             return [TextBlock(text=self.content)]
         return self.content

@@ -1,7 +1,6 @@
 """Provider-specific implementations for Cogent."""
 
-from .base import FormatterBase
-from .models import (
+from cogent.ports.model import (
     ImageBlock,
     Message,
     TextBlock,
@@ -9,8 +8,12 @@ from .models import (
     ToolUseBlock,
 )
 
+from .base import FormatterBase
+from .litellm import LiteLLMFormatter
+
 __all__ = [
     "FormatterBase",
+    "LiteLLMFormatter",
     "Message",
     "TextBlock",
     "ImageBlock",

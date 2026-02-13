@@ -1,8 +1,9 @@
 import asyncio
 
-from cogent.core import Agent, Control, ModelPort, Result
-from cogent.multi import AgentRegistry, MultiEnv, MultiState
-from cogent.multi.primitives import concurrent, emit, handoff, route
+from cogent.combinators import AgentRegistry, MultiEnv, MultiState
+from cogent.combinators.ops import concurrent, emit, handoff, route
+from cogent.kernel import Agent, Control, Result
+from cogent.ports.env import ModelPort
 
 
 class MockModel(ModelPort):

@@ -1,31 +1,25 @@
-from .core import (
-    Agent,
-    Control,
-    Env,
-    Result,
-    ToolRegistry,
-    ToolResult,
-    ToolUse,
-    default_registry,
-)
-from .core.trace import TraceContext
-from .starter import ReActConfig, ReActState, run_react_agent
+"""Cogent - Principled AI Agent Orchestration."""
+
+from cogent.agents import ReActConfig, ReActState
+from cogent.kernel import Agent, Control, Result, TraceContext
+from cogent.kernel.types import ToolResult, ToolUse
+from cogent.ports.env import Env
+from cogent.runtime import ToolRegistry, default_registry
 
 __all__ = [
-    # Core
-    "Result",
-    "Control",
-    # Primitives
+    # Kernel
     "Agent",
-    "Env",
-    "run_react_agent",
-    "ReActConfig",
+    "Control",
+    "Result",
+    "TraceContext",
     "ToolUse",
     "ToolResult",
+    # Ports
+    "Env",
+    # Runtime
     "ToolRegistry",
     "default_registry",
-    # Tracing
-    "TraceContext",
-    # Starter
+    # Agents
+    "ReActConfig",
     "ReActState",
 ]

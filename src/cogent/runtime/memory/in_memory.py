@@ -1,3 +1,5 @@
+"""In-memory context implementation."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -7,6 +9,7 @@ from typing import Any, Protocol
 
 
 class TrimPolicy(Protocol):
+    """Policy for trimming context entries."""
     def __call__(self, entries: list[Any]) -> list[Any]: ...
 
 
@@ -73,44 +76,19 @@ class InMemoryContext(Context):
     _entries: tuple[Any, ...] = ()
 
     def append(self, entry: Any) -> InMemoryContext:
-        """Add an entry immutably.
-
-        Args:
-            entry: The entry to add.
-
-        Returns:
-            A new InMemoryContext with the entry added.
-        """
+        """Add an entry immutably."""
         return InMemoryContext(_entries=self._entries + (entry,))
 
     def query(self, predicate: Callable[[Any], bool]) -> Iterable[Any]:
-        """Query entries matching predicate.
-
-        Args:
-            predicate: The predicate to match.
-
-        Returns:
-            An iterator of matching entries.
-        """
+        """Query entries matching predicate."""
         return (entry for entry in self._entries if predicate(entry))
 
     def snapshot(self) -> tuple[Any, ...]:
-        """Get a snapshot of all entries.
-
-        Returns:
-            A tuple of all entries.
-        """
+        """Get a snapshot of all entries."""
         return self._entries
 
     def trim(self, policy: TrimPolicy) -> InMemoryContext:
-        """Trim entries according to policy immutably.
-
-        Args:
-            policy: The trim policy.
-
-        Returns:
-            A new InMemoryContext with trimmed entries.
-        """
+        """Trim entries according to policy immutably."""
         current_list = list(self._entries)
         trimmed_list = policy(current_list)
         return InMemoryContext(_entries=tuple(trimmed_list))

@@ -2,14 +2,15 @@
 
 from typing import Any
 
-from ..base import FormatterBase
-from ..models import (
+from cogent.ports.model import (
     ImageBlock,
     Message,
     TextBlock,
     ToolResultBlock,
     ToolUseBlock,
 )
+
+from cogent.providers.base import FormatterBase
 
 
 class LiteLLMFormatter(FormatterBase):

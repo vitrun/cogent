@@ -5,8 +5,8 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from cogent.core.prompt import PromptRegistry, PromptTemplate, record_prompt
-from cogent.core.trace import TraceContext
+from cogent.kernel.prompt import PromptRegistry, PromptTemplate, record_prompt
+from cogent.kernel.trace import TraceContext
 
 
 class TestRenderedPrompt:

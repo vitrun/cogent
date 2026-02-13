@@ -1,8 +1,8 @@
 import asyncio
 from typing import cast
 
-from cogent import ReActState, ReActConfig, run_react_agent
-from cogent.starter.react import react_decide
+from cogent.agents import ReActConfig, ReActState
+from cogent.agents.react.policy import ReActPolicy, react_decide
 from fakes import FakeTools, make_fake_env
 
 
@@ -27,7 +27,8 @@ def test_react_final_halts() -> None:
     env = make_fake_env(responses)
 
     initial_state = ReActState()
-    flow = run_react_agent(initial_state)
+    policy = ReActPolicy(ReActConfig())
+    flow = policy.run(initial_state)
     result = asyncio.run(flow.run(env))
 
     assert result.control.kind == "halt"
@@ -48,7 +49,8 @@ def test_react_tool_then_final() -> None:
     tools.handlers["echo"] = echo_tool
 
     initial_state = ReActState()
-    flow = run_react_agent(initial_state)
+    policy = ReActPolicy(ReActConfig())
+    flow = policy.run(initial_state)
     result = asyncio.run(flow.run(env))
 
     assert result.control.kind == "halt"

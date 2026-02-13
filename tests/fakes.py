@@ -4,8 +4,8 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
-from cogent.core import Env, MemoryPort, ModelPort, Sink, ToolPort
-from cogent.starter import ReActState
+from cogent.agents import ReActState
+from cogent.ports.env import Env, MemoryPort, ModelPort, Sink, ToolPort
 
 
 @dataclass

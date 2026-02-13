@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
-from cogent.core.env import Env
-from cogent.core.result import Control, Result
+from cogent.kernel.result import Control, Result
+from cogent.ports.env import Env
 from cogent.structured.errors import CastError
 from cogent.structured.parser import parse_json_if_needed
 from cogent.structured.schema import OutputSchema

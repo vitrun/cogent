@@ -1,8 +1,10 @@
+"""ReAct state protocol for agents module."""
+
 from __future__ import annotations
 
 from typing import Any, Protocol, TypeVar
 
-from ..core.memory import Context
+from cogent.runtime.memory.in_memory import Context
 
 S = TypeVar("S")
 

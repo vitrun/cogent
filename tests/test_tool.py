@@ -4,12 +4,12 @@ import asyncio
 import pytest
 from typing import Dict, Any
 
-from cogent.core import ToolUse, ToolResult, ToolRegistry, ToolParameter, ToolDefinition
-from cogent.core import create_tool_execution_step
-from cogent.core import Control, Result
-from cogent.core import Env
-from cogent.starter import ReActState
-from cogent.starter.react import ReActPolicy, ReActConfig
+from cogent.agents import ReActConfig, ReActState
+from cogent.agents.react.policy import ReActPolicy
+from cogent.kernel import Control, Result
+from cogent.kernel.types import ToolDefinition, ToolParameter, ToolResult, ToolUse
+from cogent.ports.env import Env
+from cogent.runtime import create_tool_execution_step, ToolRegistry
 
 from fakes import FakeModel, FakeTools, FakeMemory
 

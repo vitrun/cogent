@@ -1,77 +1,44 @@
+"""Tool registry implementation."""
+
 from __future__ import annotations
 
 import inspect
 from collections.abc import Awaitable, Callable
-from typing import Any, Self, TypeVar
+from typing import Any, TypeVar
 
-from pydantic import BaseModel
+from cogent.kernel.result import Control, Result
+from cogent.kernel.types import ToolDefinition, ToolResult, ToolUse
 
-from .agent import Step
-from .result import Control, Result
-
-
-class ToolUse(BaseModel):
-    id: str
-    name: str
-    args: dict[str, Any]
-
-
-class ToolResult(BaseModel):
-    id: str
-    content: str
-    failed: bool = False
-
-    @classmethod
-    def success(cls, id: str, content: str) -> Self:
-        return cls(id=id, content=content, failed=False)
-
-    @classmethod
-    def failure(cls, id: str, content: str) -> Self:
-        return cls(id=id, content=content, failed=True)
-
-
-class ToolParameter(BaseModel):
-    name: str
-    type: str
-    description: str
-    required: bool
-    default: Any | None = None
-
-
-class ToolDefinition(BaseModel):
-    name: str
-    description: str
-    parameters: dict[str, ToolParameter]
-
-    def validate_parameters(self, params: dict[str, Any]) -> bool:
-        for param_name, param in self.parameters.items():
-            if param.required and param_name not in params:
-                return False
-        return True
+ToolHandler = Callable[[Any, Any, ToolUse], Awaitable[str] | str]
 
 
 class ToolRegistry:
+    """Registry for managing tool handlers and definitions."""
+
     def __init__(self) -> None:
         self._tools: dict[str, ToolHandler] = {}
         self._definitions: dict[str, ToolDefinition] = {}
 
     def register(self, name: str, handler: ToolHandler, definition: ToolDefinition | None = None) -> None:
+        """Register a tool with its handler and optional definition."""
         self._tools[name] = handler
         if definition:
             self._definitions[name] = definition
 
     def get_definition(self, name: str) -> ToolDefinition | None:
+        """Get tool definition by name."""
         return self._definitions.get(name)
 
     async def run(self, env: Any, state: Any, call: ToolUse) -> ToolResult:
+        """Execute a tool call."""
         handler = self._tools.get(call.name)
         if handler is None:
             return ToolResult.failure(call.id, f"Tool not found: {call.name}")
-        
+
         definition = self._definitions.get(call.name)
         if definition and not definition.validate_parameters(call.args):
             return ToolResult.failure(call.id, f"Invalid parameters for tool: {call.name}")
-            
+
         try:
             content = handler(env, state, call)
             if inspect.isawaitable(content):
@@ -81,10 +48,8 @@ class ToolRegistry:
             return ToolResult.failure(call.id, f"Tool error: {exc}")
 
 
-ToolHandler = Callable[[Any, Any, ToolUse], Awaitable[str] | str]
-
-
 def default_registry() -> ToolRegistry:
+    """Create a default registry with example tools."""
     registry = ToolRegistry()
 
     def example_tool(_env: Any, state: Any, call: ToolUse) -> str:
@@ -100,28 +65,16 @@ V = TypeVar("V")
 R = TypeVar("R")
 
 
-def create_tool_execution_step(registry: ToolRegistry | None = None) -> Step[S, ToolUse, ToolResult]:
-    """
-    创建工具执行步骤函数
-    
+def create_tool_execution_step(registry: ToolRegistry | None = None):
+    """Create a tool execution step function.
+
     Args:
-        registry: 工具注册表，默认为default_registry()
-        
+        registry: Tool registry, defaults to default_registry()
+
     Returns:
-        异步步骤函数，接收状态、工具调用和环境，返回步骤结果
+        Async step function that executes tool calls
     """
     async def step(state: S, call: ToolUse, env: Any) -> Result[S, ToolResult]:
-        """
-        工具执行步骤
-        
-        Args:
-            state: 当前状态
-            call: 工具调用
-            env: 环境
-            
-        Returns:
-            包含工具执行结果的步骤结果
-        """
         used_registry = registry or default_registry()
         try:
             result = await used_registry.run(env, state, call)
@@ -130,5 +83,5 @@ def create_tool_execution_step(registry: ToolRegistry | None = None) -> Step[S, 
             return Result(state, value=result, control=Control.Continue())
         except Exception as exc:
             return Result(state, control=Control.Error(f"Tool execution failed: {exc}"))
-    
+
     return step

@@ -1,48 +1,21 @@
+"""ReAct policy implementation."""
+
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field, replace
-from typing import Any, Generic, Self, TypeVar
+from dataclasses import dataclass
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from ..core import Agent, Control, Env, Evidence, Result, ToolResult, ToolUse
-from ..core.memory import Context, InMemoryContext
+from cogent.kernel.agent import Agent
+from cogent.kernel.result import Control, Result
+from cogent.kernel.types import ToolResult, ToolUse
+from cogent.ports.env import Env
+
 from .protocols import ReActStateProtocol
 
 S = TypeVar("S")
-
-
-@dataclass(frozen=True)
-class ReActState:
-    """Default opinionated state that combines task information, context, and evidence for agents."""
-
-    context: Context = field(default_factory=InMemoryContext)
-    scratchpad: str = field(default="")
-    evidence: Evidence = field(default_factory=lambda: Evidence(action="start"))  # type: ignore
-
-    def with_context(self, entry: str) -> Self:
-        new_context = self.context.append(entry)
-        return replace(self, context=new_context)
-
-    def with_scratchpad(self, text: str) -> Self:
-        return replace(self, scratchpad=text)
-
-    def with_evidence(
-        self,
-        action: str,
-        input_data: Any = None,
-        output_data: Any = None,
-        info: dict[str, Any] | None = None,
-        **kwargs,
-    ) -> Self:
-        new_evidence = self.evidence.child(
-            action,
-            info=info or {},
-        )
-
-        # Create new state with the new evidence
-        return replace(self, evidence=new_evidence)
 
 
 class ReActOutput(BaseModel):
@@ -66,17 +39,12 @@ def _append_scratchpad(state: ReActStateProtocol[S], line: str) -> S:
 
 def _clean_json_output(text: str) -> str:
     """Clean markdown code blocks from JSON output."""
-    # Remove ```json and ``` wrappers
     text = text.strip()
     if text.startswith("```"):
-        # Find the end of the opening code fence
         lines = text.split("\n")
-        # Skip the first line (code fence)
         if len(lines) >= 2:
-            # Remove the first line (```json or ```)
             if lines[0].strip().startswith("```"):
                 lines = lines[1:]
-            # Remove the last line if it's a code fence
             if lines and lines[-1].strip() == "```":
                 lines = lines[:-1]
             text = "\n".join(lines)
@@ -85,7 +53,6 @@ def _clean_json_output(text: str) -> str:
 
 async def react_decide(state: ReActStateProtocol[S], model_output: str, env: Env) -> Result[S, ToolUse | str]:
     """Decide step that parses model output and decides on action or final answer."""
-    # Clean markdown code blocks from model output
     cleaned_output = _clean_json_output(model_output)
 
     try:
@@ -126,11 +93,7 @@ async def react_decide(state: ReActStateProtocol[S], model_output: str, env: Env
 
 
 class ReActPolicy(Generic[S]):
-    """ReAct policy that orchestrates the pipeline, independent of provider.
-
-    Args:
-        config: ReAct configuration
-    """
+    """ReAct policy that orchestrates the pipeline, independent of provider."""
 
     def __init__(self, config: ReActConfig):
         self.config = config
@@ -140,7 +103,6 @@ class ReActPolicy(Generic[S]):
         context_entries = state.context.snapshot()
         context_block = "\n".join(context_entries)
 
-        # Include task in the first prompt
         task_context = f"\nTask: {task}" if task else ""
 
         prompt = (
@@ -195,21 +157,14 @@ class ReActPolicy(Generic[S]):
         return state.with_scratchpad(line)
 
     def run(self, initial_state: S, task: str = "") -> Agent[S, str]:
-        """Run ReAct agent with optimized recursive loop.
-
-        Args:
-            initial_state: The initial state for the agent
-            task: The task to perform (included in the prompt)
-        """
+        """Run ReAct agent with optimized recursive loop."""
         def loop(state: S, step_index: int) -> Agent[S, str]:
-            """Tail-recursive loop function that creates a new Agent for each step."""
             async def continue_or_halt(
                 next_state: S, value: str, env: Env
             ) -> Result[S, str]:
                 next_step = step_index + 1
                 if next_step >= self.config.max_steps:
                     return Result(next_state, value=value, control=Control.Halt())
-                # Tail-recursive call - creates new Agent instance
                 result = await loop(next_state, next_step).run(env)
                 return result
 
@@ -224,10 +179,3 @@ class ReActPolicy(Generic[S]):
             )
 
         return loop(initial_state, 0)
-
-
-def run_react_agent(initial_state: S) -> Agent[S, str]:
-    """Run ReAct agent with optimized recursive loop."""
-    config = ReActConfig()
-    policy = ReActPolicy(config)
-    return policy.run(initial_state)

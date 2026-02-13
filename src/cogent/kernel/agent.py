@@ -1,3 +1,5 @@
+"""Agent monad - core orchestration primitive."""
+
 from __future__ import annotations
 
 import time
@@ -5,11 +7,11 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from typing import Any, Generic, TypeVar
 
+from cogent.kernel.result import Control, Result
+from cogent.kernel.types import ToolUse
+from cogent.ports.env import Env
 from cogent.structured.cast import make_cast_step
 from cogent.structured.schema import OutputSchema
-
-from .env import Env
-from .result import Control, Result
 
 S = TypeVar("S")
 V = TypeVar("V")
@@ -215,5 +217,3 @@ class Agent(Generic[S, V]):
             return Result(state, value=state, control=Control.Continue())  # type: ignore[arg-type]
 
         return Agent(_run=run_func)
-
-

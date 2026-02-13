@@ -1,12 +1,12 @@
 import asyncio
-from cogent.provider import (
+from cogent.ports.model import (
     Message,
     TextBlock,
     ImageBlock,
     ToolUseBlock,
     ToolResultBlock,
-    FormatterBase,
 )
+from cogent.providers import FormatterBase
 
 
 class TestMessageModel:

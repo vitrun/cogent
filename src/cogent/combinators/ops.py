@@ -1,4 +1,4 @@
-"""Multi-agent primitives: handoff, emit, route, concurrent."""
+"""Combinator primitives: handoff, emit, route, concurrent."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from cogent.core import Agent, Control, Result
+from cogent.kernel import Agent, Control, Result
 
 from . import MultiEnv, MultiState
 

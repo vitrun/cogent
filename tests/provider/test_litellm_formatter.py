@@ -1,12 +1,12 @@
 import asyncio
-from cogent.provider import (
+from cogent.ports.model import (
     Message,
     TextBlock,
     ImageBlock,
     ToolUseBlock,
     ToolResultBlock,
 )
-from cogent.provider.litellm import LiteLLMFormatter
+from cogent.providers.litellm import LiteLLMFormatter
 
 
 class TestLiteLLMFormatter:

@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from cogent.core.trace import TraceContext
+    from cogent.kernel.trace import TraceContext
 
 
 @dataclass(frozen=True)

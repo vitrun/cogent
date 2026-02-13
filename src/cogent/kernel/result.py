@@ -1,3 +1,5 @@
+"""Core kernel abstractions - pure and dependency-free."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

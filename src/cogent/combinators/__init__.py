@@ -1,4 +1,4 @@
-"""Multi-agent primitives for composing agents."""
+"""Combinators - higher-order agent composition primitives."""
 
 from __future__ import annotations
 
@@ -7,7 +7,8 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
-from cogent.core import Agent, Control, Env, Result
+from cogent.kernel import Agent, Control, Result
+from cogent.ports.env import Env
 
 S = TypeVar("S")
 V = TypeVar("V")
