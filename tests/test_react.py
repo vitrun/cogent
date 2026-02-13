@@ -53,6 +53,6 @@ def test_react_tool_then_final() -> None:
 
     assert result.control.kind == "halt"
     assert result.value == "ok"
-    history_entries = result.state.history.snapshot()
-    assert "Thought: use tool" in history_entries[0]
-    assert any(entry.startswith("Observation: ") for entry in history_entries)
+    context_entries = result.state.context.snapshot()
+    assert "Thought: use tool" in context_entries[0]
+    assert any(entry.startswith("Observation: ") for entry in context_entries)

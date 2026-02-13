@@ -1,6 +1,6 @@
 # Core modules - no dependencies on starter to avoid circular imports
 from .agent import Agent
-from .env import Env, MemoryPort, ModelPort, RuntimeContext, ToolPort
+from .env import Env, MemoryPort, ModelPort, Sink, ToolPort
 from .evidence import Evidence
 from .result import Control, Result
 from .tool import (

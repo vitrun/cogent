@@ -10,87 +10,107 @@ class TrimPolicy(Protocol):
     def __call__(self, entries: list[Any]) -> list[Any]: ...
 
 
-class Memory(ABC):
+class Context(ABC):
     """
-    Memory 抽象类，提供内存操作接口
+    Execution-local working context.
+    Part of domain state.
+    Must be pure and persistent-style.
     """
-    
+
     @abstractmethod
-    def append(self, entry: Any) -> Memory:
-        """
-        添加内存条目
-        
+    def append(self, entry: Any) -> Context:
+        """Add an entry to the context.
+
         Args:
-            entry: 要添加的内存条目
-            
+            entry: The entry to add.
+
         Returns:
-            新的 Memory 实例
+            A new Context instance.
         """
         pass
-    
+
     @abstractmethod
     def query(self, predicate: Callable[[Any], bool]) -> Iterable[Any]:
-        """
-        根据谓词查询内存
-        
+        """Query the context by predicate.
+
         Args:
-            predicate: 查询谓词函数
-            
+            predicate: The query predicate function.
+
         Returns:
-            匹配的内存条目
+            Matching context entries.
         """
         pass
-    
+
     @abstractmethod
-    def snapshot(self) -> list[Any]:
-        """
-        获取内存快照
-        
+    def snapshot(self) -> tuple[Any, ...]:
+        """Get a snapshot of the context.
+
         Returns:
-            内存条目的快照
+            A tuple of context entries.
         """
         pass
-    
+
     @abstractmethod
-    def trim(self, policy: TrimPolicy) -> Memory:
-        """
-        根据策略裁剪内存
-        
+    def trim(self, policy: TrimPolicy) -> Context:
+        """Trim the context according to policy.
+
         Args:
-            policy: 裁剪策略
-            
+            policy: The trim policy.
+
         Returns:
-            裁剪后的新 Memory 实例
+            A new trimmed Context instance.
         """
         pass
 
 
 @dataclass(frozen=True)
-class SimpleMemory(Memory):
+class InMemoryContext(Context):
     """
-    简单的 Memory 实现，使用分层机制提高性能
+    In-memory implementation of Context.
+    Immutable - all operations return new instances.
     """
-    
-    _base: Memory | None = None
-    _current: tuple[Any, ...] = ()
-    
-    def append(self, entry: Any) -> Memory:
-        new_current = self._current + (entry,)
-        return SimpleMemory(_base=self._base, _current=new_current)
-    
+
+    _entries: tuple[Any, ...] = ()
+
+    def append(self, entry: Any) -> InMemoryContext:
+        """Add an entry immutably.
+
+        Args:
+            entry: The entry to add.
+
+        Returns:
+            A new InMemoryContext with the entry added.
+        """
+        return InMemoryContext(_entries=self._entries + (entry,))
+
     def query(self, predicate: Callable[[Any], bool]) -> Iterable[Any]:
-        if self._base:
-            yield from self._base.query(predicate)
-        yield from (entry for entry in self._current if predicate(entry))
-    
-    def snapshot(self) -> list[Any]:
-        result = []
-        if self._base:
-            result.extend(self._base.snapshot())
-        result.extend(self._current)
-        return result
-    
-    def trim(self, policy: TrimPolicy) -> Memory:
-        all_entries = self.snapshot()
-        trimmed_entries = policy(all_entries)
-        return SimpleMemory(_current=tuple(trimmed_entries))
+        """Query entries matching predicate.
+
+        Args:
+            predicate: The predicate to match.
+
+        Returns:
+            An iterator of matching entries.
+        """
+        return (entry for entry in self._entries if predicate(entry))
+
+    def snapshot(self) -> tuple[Any, ...]:
+        """Get a snapshot of all entries.
+
+        Returns:
+            A tuple of all entries.
+        """
+        return self._entries
+
+    def trim(self, policy: TrimPolicy) -> InMemoryContext:
+        """Trim entries according to policy immutably.
+
+        Args:
+            policy: The trim policy.
+
+        Returns:
+            A new InMemoryContext with trimmed entries.
+        """
+        current_list = list(self._entries)
+        trimmed_list = policy(current_list)
+        return InMemoryContext(_entries=tuple(trimmed_list))

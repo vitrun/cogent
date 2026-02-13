@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
-from cogent.core import Env, MemoryPort, ModelPort, ToolPort
+from cogent.core import Env, MemoryPort, ModelPort, Sink, ToolPort
 from cogent.starter import ReActState
+
 
 @dataclass
 class FakeModel(ModelPort):
@@ -17,14 +18,14 @@ class FakeModel(ModelPort):
             raise RuntimeError("No model responses available")
         return self.responses.pop(0)
 
-    async def stream_complete(self, prompt: str, ctx) -> str:
+    async def stream_complete(self, prompt: str, ctx: Sink) -> str:
         _ = prompt
         if not self.responses:
             raise RuntimeError("No model responses available")
         response = self.responses.pop(0)
-        # 模拟token流
+        # Simulate token streaming
         for char in response:
-            await ctx.emit(char)
+            await ctx.send(char)
             await asyncio.sleep(0.01)
         await ctx.close()
         return response
@@ -43,13 +44,19 @@ class FakeTools(ToolPort):
 
 @dataclass
 class FakeMemory(MemoryPort):
-    stored: list[ReActState]
+    stored: list[list[Any]] = field(default_factory=list)
 
-    async def recall(self, state: ReActState) -> ReActState:
-        return state
+    async def append(self, records: list[Any]) -> None:
+        self.stored.append(records)
 
-    async def store(self, state: ReActState) -> None:
-        self.stored.append(state)
+    async def query(self, query: Any) -> list[Any]:
+        return []
+
+    async def clear(self) -> None:
+        self.stored.clear()
+
+    async def close(self) -> None:
+        pass
 
 
 def make_fake_env(responses: list[str] | None = None) -> Env:

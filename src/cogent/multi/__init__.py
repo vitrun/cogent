@@ -121,7 +121,7 @@ class MultiEnv(Env):
         return MultiEnv(
             model=self.model,
             tools=self.tools,
-            runtime_context=self.runtime_context,
+            sink=self.sink,
             registry=self.registry,
             state=new_state,
         )

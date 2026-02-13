@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from dataclasses import dataclass
-from cogent.core.memory import Memory, SimpleMemory
+from cogent.core.memory import Context, InMemoryContext
 from cogent.core.env import Env, ModelPort, ToolPort
 
 
@@ -18,7 +18,7 @@ class MockToolPort(ToolPort):
         return "mock result"
 
 
-# 创建一个模拟的 Env 对象
+# Create a mock Env object
 mock_env = Env(
     model=MockModelPort(),
     tools=MockToolPort()
@@ -26,61 +26,81 @@ mock_env = Env(
 
 
 @dataclass
-class StateWithMemory:
-    """包含内存的状态类"""
+class StateWithContext:
+    """State class containing context."""
     counter: int
-    memory: Memory
+    context: Context
 
 
 @pytest.mark.asyncio
-async def test_memory_basic_operations():
+async def test_context_basic_operations():
     """
-    测试 Memory 的基本操作
+    Test Context basic operations.
     """
-    # 测试基本的内存写入和读取
-    initial_memory = SimpleMemory()
-    
-    # 测试 append 操作
-    memory1 = initial_memory.append({"obs": "foo"})
-    memory2 = memory1.append({"obs": "bar"})
-    
-    # 测试 query 操作
-    foo_entries = list(memory2.query(lambda e: e["obs"] == "foo"))
+    # Test basic context write and read
+    initial_context = InMemoryContext()
+
+    # Test append operation
+    context1 = initial_context.append({"obs": "foo"})
+    context2 = context1.append({"obs": "bar"})
+
+    # Test query operation
+    foo_entries = list(context2.query(lambda e: e["obs"] == "foo"))
     assert len(foo_entries) == 1
     assert foo_entries[0]["obs"] == "foo"
-    
-    # 测试 snapshot 操作
-    snapshot = memory2.snapshot()
+
+    # Test snapshot operation
+    snapshot = context2.snapshot()
     assert len(snapshot) == 2
     assert snapshot[0]["obs"] == "foo"
     assert snapshot[1]["obs"] == "bar"
-    
-    # 测试 trim 操作
-    trimmed_memory = memory2.trim(lambda entries: entries[-1:])  # 保留最后一个
-    trimmed_snapshot = trimmed_memory.snapshot()
+
+    # Test trim operation
+    trimmed_context = context2.trim(lambda entries: entries[-1:])  # Keep last one
+    trimmed_snapshot = trimmed_context.snapshot()
     assert len(trimmed_snapshot) == 1
     assert trimmed_snapshot[0]["obs"] == "bar"
 
 
 @pytest.mark.asyncio
-async def test_memory_integration():
+async def test_context_immutability():
     """
-    测试 Memory 的集成使用
+    Test Context immutability - original context unchanged after operations.
     """
-    # 测试内存的确定性
-    memory1 = SimpleMemory()
-    memory1 = memory1.append({"obs": "test"})
-    snapshot1 = memory1.snapshot()
-    
-    memory2 = SimpleMemory()
-    memory2 = memory2.append({"obs": "test"})
-    snapshot2 = memory2.snapshot()
-    
+    initial_context = InMemoryContext()
+
+    # Append to create new context
+    new_context = initial_context.append({"obs": "test"})
+
+    # Original should be unchanged
+    original_snapshot = initial_context.snapshot()
+    assert len(original_snapshot) == 0
+
+    # New context should have the entry
+    new_snapshot = new_context.snapshot()
+    assert len(new_snapshot) == 1
+    assert new_snapshot[0]["obs"] == "test"
+
+
+@pytest.mark.asyncio
+async def test_context_determinism():
+    """
+    Test Context determinism.
+    """
+    context1 = InMemoryContext()
+    context1 = context1.append({"obs": "test"})
+    snapshot1 = context1.snapshot()
+
+    context2 = InMemoryContext()
+    context2 = context2.append({"obs": "test"})
+    snapshot2 = context2.snapshot()
+
     assert snapshot1 == snapshot2
 
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(test_memory_basic_operations())
-    asyncio.run(test_memory_integration())
+    asyncio.run(test_context_basic_operations())
+    asyncio.run(test_context_immutability())
+    asyncio.run(test_context_determinism())
     print("All tests passed!")

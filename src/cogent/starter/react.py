@@ -7,7 +7,7 @@ from typing import Any, Generic, Self, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from ..core import Agent, Control, Env, Evidence, Result, ToolResult, ToolUse
-from ..core.memory import Memory, SimpleMemory
+from ..core.memory import Context, InMemoryContext
 from .protocols import ReActStateProtocol
 
 S = TypeVar("S")
@@ -15,15 +15,15 @@ S = TypeVar("S")
 
 @dataclass(frozen=True)
 class ReActState:
-    """Default opinionated state that combines task information, history, and evidence for agents."""
+    """Default opinionated state that combines task information, context, and evidence for agents."""
 
-    history: Memory = field(default_factory=SimpleMemory)
+    context: Context = field(default_factory=InMemoryContext)
     scratchpad: str = field(default="")
     evidence: Evidence = field(default_factory=lambda: Evidence(action="start"))  # type: ignore
 
-    def with_history(self, entry: str) -> Self:
-        new_history = self.history.append(entry)
-        return replace(self, history=new_history)
+    def with_context(self, entry: str) -> Self:
+        new_context = self.context.append(entry)
+        return replace(self, context=new_context)
 
     def with_scratchpad(self, text: str) -> Self:
         return replace(self, scratchpad=text)
@@ -96,14 +96,14 @@ async def react_decide(state: ReActStateProtocol[S], model_output: str, env: Env
 
     next_state = state
     thought_line = f"Thought: {parsed.thought}"
-    next_state = next_state.with_history(thought_line)
+    next_state = next_state.with_context(thought_line)
     next_state = _append_scratchpad(next_state, thought_line)
 
     action_input = parsed.action_input or {}
     action_line = ""
     if parsed.action:
         action_line = f"Action: {parsed.action} {action_input}"
-        next_state = next_state.with_history(action_line)
+        next_state = next_state.with_context(action_line)
         next_state = _append_scratchpad(next_state, action_line)
 
     next_state = next_state.with_evidence(
@@ -127,18 +127,18 @@ async def react_decide(state: ReActStateProtocol[S], model_output: str, env: Env
 
 class ReActPolicy(Generic[S]):
     """ReAct policy that orchestrates the pipeline, independent of provider.
-    
+
     Args:
         config: ReAct configuration
     """
-    
+
     def __init__(self, config: ReActConfig):
         self.config = config
-    
+
     async def prompt(self, state: S, task: str, env: Env) -> Result[S, str]:
-        """Prompt step that formats history and scratchpad into a prompt."""
-        history_entries = state.history.snapshot()
-        history_block = "\n".join(history_entries)
+        """Prompt step that formats context and scratchpad into a prompt."""
+        context_entries = state.context.snapshot()
+        context_block = "\n".join(context_entries)
 
         # Include task in the first prompt
         task_context = f"\nTask: {task}" if task else ""
@@ -148,7 +148,7 @@ class ReActPolicy(Generic[S]):
             '"thought", "action", "action_input", "final". '
             "Set exactly one of action or final.\n"
             '"action_input" must be an object/dictionary, not a string.\n\n'
-            f"History:\n{history_block}\n\n"
+            f"History:\n{context_block}\n\n"
             f"Scratchpad:\n{state.scratchpad}{task_context}\n"
         )
         next_state = state.with_evidence("prompt", info={})
@@ -156,8 +156,8 @@ class ReActPolicy(Generic[S]):
 
     async def think(self, state: S, prompt: str, env: Env) -> Result[S, str]:
         """Think step that calls the model to generate a response."""
-        if env.runtime_context:
-            response = await env.model.stream_complete(prompt, env.runtime_context)
+        if env.sink:
+            response = await env.model.stream_complete(prompt, env.sink)
         else:
             response = await env.model.complete(prompt)
         next_state = state.with_evidence("think")
@@ -183,17 +183,17 @@ class ReActPolicy(Generic[S]):
     async def observe(self, state: S, result: ToolResult, env: Env) -> Result[S, str]:
         """Observe step that processes tool execution results."""
         observation = f"Observation: {result.content}"
-        next_state = state.with_history(observation)
+        next_state = state.with_context(observation)
         next_state = self._append_scratchpad(next_state, observation)
         next_state = next_state.with_evidence("observation", info={"tool_result_id": result.id})
         return Result(next_state, value=observation, control=Control.Continue())
-    
+
     def _append_scratchpad(self, state: S, line: str) -> S:
         """Helper method to append a line to the scratchpad."""
         if state.scratchpad:
             return state.with_scratchpad(f"{state.scratchpad}\n{line}")
         return state.with_scratchpad(line)
-    
+
     def run(self, initial_state: S, task: str = "") -> Agent[S, str]:
         """Run ReAct agent with optimized recursive loop.
 
