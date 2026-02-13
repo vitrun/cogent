@@ -1,7 +1,7 @@
-from ..starter.evidence import Evidence
-from ..starter.react import ReActConfig, ReActOutput, run_react_agent
+# Core modules - no dependencies on starter to avoid circular imports
 from .agent import Agent
 from .env import Env, MemoryPort, ModelPort, RuntimeContext, ToolPort
+from .evidence import Evidence
 from .result import Control, Result
 from .tool import (
     ToolDefinition,

@@ -6,9 +6,8 @@ from typing import Any, Generic, Self, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from ..core import Agent, Control, Env, Result, ToolResult, ToolUse
+from ..core import Agent, Control, Env, Evidence, Result, ToolResult, ToolUse
 from ..core.memory import Memory, SimpleMemory
-from .evidence import Evidence
 from .protocols import ReActStateProtocol
 
 S = TypeVar("S")

@@ -50,11 +50,11 @@ class Evidence:
         """Find all evidence matching filters."""
         # Simple filters
         matches = True
-        for field, expected in filters.items():
-            if not hasattr(self, field):
+        for attr_name, expected in filters.items():
+            if not hasattr(self, attr_name):
                 matches = False
                 break
-            actual = getattr(self, field)
+            actual = getattr(self, attr_name)
             if callable(expected):  # Support predicate functions
                 if not expected(actual):
                     matches = False
