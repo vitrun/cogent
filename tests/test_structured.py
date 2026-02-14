@@ -3,16 +3,17 @@
 import asyncio
 from dataclasses import dataclass
 
+from fakes import make_fake_env
+
 from cogent import Agent
 from cogent.kernel import Control, Result
 from cogent.structured import (
-    CastError,
     CallableSchema,
+    CastError,
     DictSchema,
-    parse_json_if_needed,
     make_cast_step,
+    parse_json_if_needed,
 )
-from fakes import make_fake_env
 
 
 # Test schema implementations
@@ -235,7 +236,6 @@ def test_agent_cast_chain_multiple() -> None:
 def test_agent_cast_insert_after_step() -> None:
     """Test cast can be inserted after a tool step."""
     async def run_flow():
-        from cogent.kernel import Control, Result
 
         async def tool_step(s, v, env):
             _ = (s, env)

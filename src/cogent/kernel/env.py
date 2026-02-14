@@ -1,4 +1,4 @@
-"""In-memory context implementation."""
+"""Environment and Context for Cogent - default implementations."""
 
 from __future__ import annotations
 
@@ -7,12 +7,19 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from cogent.kernel.ports import MemoryPort, ModelPort, SinkPort, ToolPort
+from cogent.kernel.trace import TraceContext
 
+
+# Protocol: 裁剪策略
 class TrimPolicy(Protocol):
     """Policy for trimming context entries."""
-    def __call__(self, entries: list[Any]) -> list[Any]: ...
+
+    def __call__(self, entries: list[Any]) -> list[Any]:
+        ...
 
 
+# Protocol: 执行上下文
 class Context(ABC):
     """
     Execution-local working context.
@@ -22,50 +29,26 @@ class Context(ABC):
 
     @abstractmethod
     def append(self, entry: Any) -> Context:
-        """Add an entry to the context.
-
-        Args:
-            entry: The entry to add.
-
-        Returns:
-            A new Context instance.
-        """
+        """Add an entry to the context."""
         pass
 
     @abstractmethod
     def query(self, predicate: Callable[[Any], bool]) -> Iterable[Any]:
-        """Query the context by predicate.
-
-        Args:
-            predicate: The query predicate function.
-
-        Returns:
-            Matching context entries.
-        """
+        """Query the context by predicate."""
         pass
 
     @abstractmethod
     def snapshot(self) -> tuple[Any, ...]:
-        """Get a snapshot of the context.
-
-        Returns:
-            A tuple of context entries.
-        """
+        """Get a snapshot of the context."""
         pass
 
     @abstractmethod
     def trim(self, policy: TrimPolicy) -> Context:
-        """Trim the context according to policy.
-
-        Args:
-            policy: The trim policy.
-
-        Returns:
-            A new trimmed Context instance.
-        """
+        """Trim the context according to policy."""
         pass
 
 
+# 默认实现：内存上下文
 @dataclass(frozen=True)
 class InMemoryContext(Context):
     """
@@ -92,3 +75,15 @@ class InMemoryContext(Context):
         current_list = list(self._entries)
         trimmed_list = policy(current_list)
         return InMemoryContext(_entries=tuple(trimmed_list))
+
+
+# 环境聚合
+@dataclass
+class Env:
+    """Environment aggregation - combines all ports."""
+
+    model: ModelPort
+    tools: ToolPort | None = None
+    memory: MemoryPort | None = None
+    trace: TraceContext | None = None
+    sink: SinkPort | None = None

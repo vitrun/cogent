@@ -3,10 +3,35 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Any, Self
+from typing import Any, Protocol, Self, TypeVar
 
-from cogent.runtime.memory.in_memory import Context, InMemoryContext
-from cogent.runtime.trace.evidence import Evidence
+from cogent.kernel.env import Context, InMemoryContext
+from cogent.kernel.trace import Evidence
+
+S = TypeVar("S")
+
+
+class ReActStateProtocol(Protocol[S]):
+    """Protocol for states that can be used with ReAct."""
+
+    context: Context
+    scratchpad: str
+    evidence: Evidence
+
+    def with_context(self, entry: str) -> S:
+        ...
+
+    def with_scratchpad(self, text: str) -> S:
+        ...
+
+    def with_evidence(self, action: str, **kwargs) -> S:
+        ...
+
+    def with_formatted_anthropic_messages(self, messages: list[dict]) -> S:
+        ...
+
+    def with_formatted_messages(self, messages: list[dict]) -> S:
+        ...
 
 
 @dataclass(frozen=True)

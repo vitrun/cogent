@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-import asyncio
 import pytest
-from typing import Dict, Any
+from fakes import FakeModel, FakeTools
 
 from cogent.agents import ReActConfig, ReActState
 from cogent.agents.react.policy import ReActPolicy
-from cogent.kernel import Control, Result
+from cogent.kernel import Result
 from cogent.kernel.tool import ToolDefinition, ToolParameter, ToolResult, ToolUse
-from cogent.runtime import Env, create_tool_execution_step, ToolRegistry
-
-from fakes import FakeModel, FakeTools, FakeMemory
+from cogent.runtime import Env, ToolRegistry, create_tool_execution_step
 
 
 class TestToolParameter:

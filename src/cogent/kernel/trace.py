@@ -13,13 +13,68 @@ class Evidence:
 
     This is runtime infrastructure, not business state.
     Tree reconstruction happens only during visualization.
+    Supports hierarchical parent-child relationships.
     """
-    id: int
-    parent_id: int | None = None
     action: str = ""
+    id: int = field(default=0)
+    parent_id: int | None = field(default=None)
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     info: dict[str, Any] = field(default_factory=dict)
-    duration_ms: float | None = None
+    duration_ms: float | None = field(default=None)
+    _children: tuple[Evidence, ...] = field(default_factory=tuple, repr=False)
+
+    def __post_init__(self) -> None:
+        """Handle legacy argument order - first positional arg can be action or id."""
+        # If action looks like an int (e.g., Evidence(0)), swap with id
+        if isinstance(self.action, int):
+            # Swap action and id
+            object.__setattr__(self, 'id', self.action)
+            object.__setattr__(self, 'action', "")
+
+    @property
+    def step_id(self) -> int:
+        """Alias for id for backwards compatibility."""
+        return self.id
+
+    @property
+    def children(self) -> tuple[Evidence, ...]:
+        """Get child evidence entries."""
+        return self._children
+
+    def child(self, action: str, info: dict[str, Any] | None = None) -> Evidence:
+        """Create a child evidence entry (immutable - returns new Evidence)."""
+        child_evidence = Evidence(
+            action=action,
+            id=self.id + 1,
+            parent_id=self.id,
+            info=info or {},
+        )
+        # Return new Evidence with updated children
+        return Evidence(
+            action=self.action,
+            id=self.id,
+            parent_id=self.parent_id,
+            timestamp=self.timestamp,
+            info=self.info,
+            duration_ms=self.duration_ms,
+            _children=self._children + (child_evidence,),
+        )
+
+    def find_all(self, **kwargs: Any) -> list[Evidence]:
+        """Find all evidence entries matching the given criteria.
+
+        Args:
+            **kwargs: Criteria to match (e.g., action="tool.search")
+
+        Returns:
+            List of matching evidence entries including self and all descendants
+        """
+        results: list[Evidence] = [self]
+        for child in self._children:
+            results.extend(child.find_all(**kwargs))
+        if kwargs:
+            results = [e for e in results if all(e.info.get(k) == v or getattr(e, k, None) == v for k, v in kwargs.items())]
+        return results
 
 
 @dataclass
@@ -62,9 +117,9 @@ class TraceContext:
 
         self._events.append(
             Evidence(
+                action=action,
                 id=event_id,
                 parent_id=parent_id,
-                action=action,
                 timestamp=datetime.now(UTC),
                 info=info or {},
                 duration_ms=duration_ms,

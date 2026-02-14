@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import pytest
 from dataclasses import dataclass
+
+import pytest
+
+from cogent.kernel.env import Context, Env, InMemoryContext
 from cogent.kernel.ports import ModelPort, ToolPort
-from cogent.runtime import Env
-from cogent.runtime.memory.in_memory import Context, InMemoryContext
 
 
 @dataclass

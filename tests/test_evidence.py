@@ -1,9 +1,10 @@
 """Test Evidence-based traceability system using pytest."""
 
+from fakes import make_fake_env
+
 from cogent.agents import ReActState
 from cogent.kernel import Control, Result
-from cogent.runtime.trace.evidence import Evidence
-from fakes import make_fake_env
+from cogent.kernel.trace import Evidence
 
 
 def test_evidence_creation():
@@ -188,6 +189,7 @@ def test_traced_agent_state():
 def test_workflow_integration():
     """Test evidence in a realistic monadic workflow."""
     import asyncio
+
     from cogent.kernel import Agent
 
     # Initialize traced state

@@ -7,9 +7,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from typing import Any, Generic, TypeVar
 
+from cogent.kernel.env import Env
 from cogent.kernel.result import Control, Result
-from cogent.kernel.ports import Env
-from cogent.kernel.tool import ToolUse
 
 S = TypeVar("S")
 V = TypeVar("V")
@@ -64,21 +63,21 @@ class Agent(Generic[S, V]):
         Note: This method does NOT implement retry semantics.
         Retry is strictly step-level logic handled within each step function.
         """
-        class SimpleRuntimeContext:
+        class SimpleSink:
             def __init__(self, callback: Callable[[str], None]):
                 self.callback = callback
 
-            async def emit(self, chunk: str) -> None:
+            async def send(self, chunk: str) -> None:
                 self.callback(chunk)
 
             async def close(self) -> None:
                 pass
 
-        ctx: SimpleRuntimeContext | None = None
+        sink: SimpleSink | None = None
         env_to_run = env
         if on_stream_chunk:
-            ctx = SimpleRuntimeContext(on_stream_chunk)
-            env_to_run = replace(env, runtime_context=ctx)
+            sink = SimpleSink(on_stream_chunk)
+            env_to_run = replace(env, sink=sink)
 
         # Get trace context
         trace = env.trace if env else None
@@ -105,8 +104,8 @@ class Agent(Generic[S, V]):
 
             return result
         finally:
-            if ctx is not None:
-                await ctx.close()
+            if sink is not None:
+                await sink.close()
 
     def _create(self, run_func: Callable[[Env], Awaitable[Result[S, R]]]) -> Agent[S, R]:
         """Create a new agent instance."""

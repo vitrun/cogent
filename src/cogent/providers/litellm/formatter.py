@@ -9,7 +9,6 @@ from cogent.model import (
     ToolResultBlock,
     ToolUseBlock,
 )
-
 from cogent.providers.base import FormatterBase
 
 

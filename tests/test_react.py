@@ -1,9 +1,10 @@
 import asyncio
 from typing import cast
 
+from fakes import FakeTools, make_fake_env
+
 from cogent.agents import ReActConfig, ReActState
 from cogent.agents.react.policy import ReActPolicy, react_decide
-from fakes import FakeTools, make_fake_env
 
 
 def test_react_decide_invalid_json() -> None:

@@ -9,11 +9,11 @@ from typing import Any, Generic, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from cogent.kernel.agent import Agent
-from cogent.kernel.ports import Env
+from cogent.kernel.env import Env
 from cogent.kernel.result import Control, Result
 from cogent.kernel.tool import ToolResult, ToolUse
 
-from .protocols import ReActStateProtocol
+from .state import ReActStateProtocol
 
 S = TypeVar("S")
 

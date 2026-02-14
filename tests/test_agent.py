@@ -1,7 +1,8 @@
 import asyncio
 
-from cogent import Agent, Result, ReActState, Control
 from fakes import make_fake_env
+
+from cogent import Agent, Control, ReActState, Result
 
 
 def test_then_success() -> None:

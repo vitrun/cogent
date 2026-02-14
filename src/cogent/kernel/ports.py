@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Protocol
-
-from cogent.kernel.trace import TraceContext
 
 
 class SinkPort(Protocol):
@@ -55,15 +52,3 @@ class MemoryPort(Protocol):
     async def close(self) -> None:
         """Close the external store."""
         ...
-
-
-@dataclass
-class Env:
-    """Environment aggregation - combines all ports."""
-
-    model: ModelPort
-    tools: ToolPort | None = None
-    memory: MemoryPort | None = None
-    trace: TraceContext | None = None
-    sink: SinkPort | None = None
-    runtime_context: Any = None  # For streaming support
