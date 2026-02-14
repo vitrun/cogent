@@ -24,9 +24,10 @@ import argparse
 from litellm import completion
 
 from cogent import Env, ReActState
-from cogent.starter.react import ReActPolicy, ReActConfig
-from cogent.core import ModelPort, ToolPort
-from cogent.core.env import RuntimeContext
+from cogent.agents.react import ReActPolicy, ReActConfig
+from cogent.kernel import ModelPort, SinkPort
+from cogent.kernel.tool import ToolDefinition, ToolParameter, ToolUse
+from cogent.runtime.tools import ToolRegistry
 
 
 # ==================== Model Provider ====================
@@ -45,7 +46,7 @@ class LiteLLMModel(ModelPort):
         )
         return response.choices[0].message.content
 
-    async def stream_complete(self, prompt: str, ctx: RuntimeContext) -> str:
+    async def stream_complete(self, prompt: str, ctx: SinkPort) -> str:
         """Stream complete a prompt using LiteLLM."""
         response = completion(
             model=self.model_name,
@@ -58,125 +59,162 @@ class LiteLLMModel(ModelPort):
             if chunk.choices and chunk.choices[0].delta:
                 content = chunk.choices[0].delta.content
                 if content:
-                    await ctx.emit(content)
+                    await ctx.send(content)
                     full_content += content
 
         await ctx.close()
         return full_content
 
 
-# ==================== Real Tools ====================
+# ==================== Tool Implementations ====================
 
-class WebTools(ToolPort):
-    """Real web search and fetch tools (no API key required)."""
+def _search(query: str) -> str:
+    """Search using DuckDuckGo HTML (no API key needed)."""
+    url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "CogentAgent/1.0 (Research Assistant)"}
+    )
 
-    async def call(self, name: str, args: dict[str, object]) -> object:
-        """Call a tool by name."""
-        if name == "search":
-            query = str(args.get("query", ""))
-            return self._search(query)
-        elif name == "get_url":
-            url = str(args.get("url", ""))
-            return self._get_url(url)
-        elif name == "calculate":
-            expr = str(args.get("expression", ""))
-            return self._calculate(expr)
-        else:
-            raise ValueError(f"Tool not found: {name}")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read().decode("utf-8")
 
-    def _search(self, query: str) -> str:
-        """Search using DuckDuckGo HTML (no API key needed)."""
-        url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "CogentAgent/1.0 (Research Assistant)"}
-        )
-
-        try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                html = resp.read().decode("utf-8")
-
-            # Extract results from DuckDuckGo HTML
-            results = []
-            for match in re.finditer(r'<a class="result__a"[^>]*>([^<]+)</a>', html):
-                title = match.group(1).strip()
-                # Decode HTML entities
-                title = title.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-                title = title.replace("&quot;", '"').replace("&#39;", "'")
-                if title and len(title) > 3:
-                    results.append(title)
-                    if len(results) >= 5:
-                        break
-
-            if results:
-                return "Search Results for: " + query + "\n" + "\n".join(
-                    f"{i+1}. {r}" for i, r in enumerate(results)
-                )
-            else:
-                return f"No results found for: {query}"
-
-        except Exception as e:
-            return f"Search error: {e}"
-
-    def _get_url(self, url: str) -> str:
-        """Fetch content from a URL."""
-        # Basic URL validation
-        if not url.startswith(("http://", "https://")):
-            return f"Error: Invalid URL protocol. URL must start with http:// or https://"
-
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "CogentAgent/1.0 (Research Assistant)"}
-        )
-
-        try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                html = resp.read().decode("utf-8")
-
-            # Remove script and style elements
-            html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL)
-            html = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL)
-
-            # Extract text content
-            text = re.sub(r'<[^>]+>', ' ', html)
-            text = re.sub(r'\s+', ' ', text)
-            text = text.strip()
-
+        # Extract results from DuckDuckGo HTML
+        results = []
+        for match in re.finditer(r'<a class="result__a"[^>]*>([^<]+)</a>', html):
+            title = match.group(1).strip()
             # Decode HTML entities
-            text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-            text = text.replace("&quot;", '"').replace("&#39;", "'").replace("&nbsp;", " ")
+            title = title.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+            title = title.replace("&quot;", '"').replace("&#39;", "'")
+            if title and len(title) > 3:
+                results.append(title)
+                if len(results) >= 5:
+                    break
 
-            # Limit to reasonable length
-            if len(text) > 2000:
-                text = text[:2000] + "\n... (truncated)"
+        if results:
+            return "Search Results for: " + query + "\n" + "\n".join(
+                f"{i+1}. {r}" for i, r in enumerate(results)
+            )
+        else:
+            return f"No results found for: {query}"
 
-            return text
+    except Exception as e:
+        return f"Search error: {e}"
 
-        except Exception as e:
-            return f"Fetch error: {e}"
 
-    def _calculate(self, expression: str) -> str:
-        """Safely evaluate a mathematical expression."""
-        try:
-            # Only allow safe mathematical operations
-            parsed = ast.parse(expression, mode="eval")
-            # Check that the expression only contains allowed operations
-            allowed_nodes = (ast.Expression, ast.BinOp, ast.UnaryOp, ast.Constant,
-                           ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow,
-                           ast.Mod, ast.USub, ast.UAdd)
-            for node in ast.walk(parsed):
-                if not isinstance(node, allowed_nodes):
-                    return f"Error: Invalid expression"
+def _get_url(url: str) -> str:
+    """Fetch content from a URL."""
+    # Basic URL validation
+    if not url.startswith(("http://", "https://")):
+        return f"Error: Invalid URL protocol. URL must start with http:// or https://"
 
-            result = eval(compile(parsed, "<string>", "eval"))
-            return str(result)
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "CogentAgent/1.0 (Research Assistant)"}
+    )
 
-        except SyntaxError:
-            return f"Error: Invalid expression syntax"
-        except ZeroDivisionError:
-            return f"Error: Division by zero"
-        except Exception as e:
-            return f"Error: {e}"
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read().decode("utf-8")
+
+        # Remove script and style elements
+        html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL)
+        html = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL)
+
+        # Extract text content
+        text = re.sub(r'<[^>]+>', ' ', html)
+        text = re.sub(r'\s+', ' ', text)
+        text = text.strip()
+
+        # Decode HTML entities
+        text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+        text = text.replace("&quot;", '"').replace("&#39;", "'").replace("&nbsp;", " ")
+
+        # Limit to reasonable length
+        if len(text) > 2000:
+            text = text[:2000] + "\n... (truncated)"
+
+        return text
+
+    except Exception as e:
+        return f"Fetch error: {e}"
+
+
+def _calculate(expression: str) -> str:
+    """Safely evaluate a mathematical expression."""
+    try:
+        # Only allow safe mathematical operations
+        parsed = ast.parse(expression, mode="eval")
+        # Check that the expression only contains allowed operations
+        allowed_nodes = (ast.Expression, ast.BinOp, ast.UnaryOp, ast.Constant,
+                       ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow,
+                       ast.Mod, ast.USub, ast.UAdd)
+        for node in ast.walk(parsed):
+            if not isinstance(node, allowed_nodes):
+                return f"Error: Invalid expression"
+
+        result = eval(compile(parsed, "<string>", "eval"))
+        return str(result)
+
+    except SyntaxError:
+        return f"Error: Invalid expression syntax"
+    except ZeroDivisionError:
+        return f"Error: Division by zero"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# ==================== Tool Registry ====================
+
+def create_tool_registry() -> ToolRegistry:
+    """Create tool registry with web search tools."""
+
+    registry = ToolRegistry()
+
+    # Tool definitions (parameters as dict)
+    search_def = ToolDefinition(
+        name="search",
+        description="Search the web for information",
+        parameters={
+            "query": ToolParameter(name="query", type="string", description="Search query", required=True),
+        },
+    )
+
+    get_url_def = ToolDefinition(
+        name="get_url",
+        description="Fetch content from a URL",
+        parameters={
+            "url": ToolParameter(name="url", type="string", description="URL to fetch", required=True),
+        },
+    )
+
+    calculate_def = ToolDefinition(
+        name="calculate",
+        description="Evaluate a mathematical expression",
+        parameters={
+            "expression": ToolParameter(name="expression", type="string", description="Math expression", required=True),
+        },
+    )
+
+    # Tool implementations
+    async def search_handler(env, state, call: ToolUse) -> str:
+        query = str(call.args.get("query", ""))
+        return _search(query)
+
+    async def get_url_handler(env, state, call: ToolUse) -> str:
+        url = str(call.args.get("url", ""))
+        return _get_url(url)
+
+    async def calculate_handler(env, state, call: ToolUse) -> str:
+        expr = str(call.args.get("expression", ""))
+        return _calculate(expr)
+
+    registry.register("search", search_handler, search_def)
+    registry.register("get_url", get_url_handler, get_url_def)
+    registry.register("calculate", calculate_handler, calculate_def)
+
+    return registry
 
 
 # ==================== Environment ====================
@@ -186,7 +224,7 @@ def make_env() -> Env:
     model_name = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4-20250514")
     return Env(
         model=LiteLLMModel(model_name=model_name),
-        tools=WebTools(),
+        tools=create_tool_registry(),
     )
 
 
@@ -212,7 +250,7 @@ async def run_task(task: str) -> str:
     initial_state = ReActState()
     result = await policy.run(initial_state, task).run(env)
 
-    return result.control.value
+    return result.value
 
 
 async def main():

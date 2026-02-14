@@ -9,8 +9,8 @@ import asyncio
 from litellm import completion
 
 from cogent import Env, ReActState, Agent, Result, Control
-from cogent.core import ModelPort, Sink
-from cogent.core.memory import Context, InMemoryContext
+from cogent.kernel import ModelPort, SinkPort
+from cogent.kernel.env import Context, InMemoryContext
 
 
 class LiteLLMModel(ModelPort):
@@ -40,7 +40,7 @@ class LiteLLMModel(ModelPort):
 
         return response.choices[0].message.content
 
-    async def stream_complete(self, prompt: str, ctx: Sink) -> str:
+    async def stream_complete(self, prompt: str, ctx: SinkPort) -> str:
         """Stream complete a prompt using LiteLLM.
 
         Args:
@@ -68,7 +68,7 @@ class LiteLLMModel(ModelPort):
         return full_content
 
 
-class TTYSink(Sink):
+class TTYSink(SinkPort):
     """Sink for TTY streaming output."""
 
     async def send(self, chunk: str) -> None:

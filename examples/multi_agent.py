@@ -19,9 +19,9 @@ from typing import Any
 
 from litellm import completion
 
-from cogent.core import Agent, Control, Result, ModelPort
-from cogent.multi import AgentRegistry, MultiEnv, MultiState
-from cogent.multi.primitives import handoff, emit, route, concurrent
+from cogent.kernel import Agent, Control, Result, ModelPort
+from cogent.combinators import AgentRegistry, MultiEnv, MultiState, concurrent
+from cogent.combinators.ops import handoff
 
 
 # ==================== Model Provider ====================
@@ -67,7 +67,7 @@ Respond with just a list of sub-topics, one per line. Keep it brief."""
             shared=ms.shared + (f"Sub-topics:\n{response}",),
             locals=ms.locals,
         )
-        return Result(state=new_state, control=Control.Continue(response))
+        return Result(state=new_state, value=response, control=Control.Continue())
 
     return Agent(_run)  # type: ignore[arg-type]
 
@@ -92,7 +92,7 @@ Be accurate and concise."""
             shared=ms.shared + (f"Findings on '{topic}':\n{response}",),
             locals=ms.locals,
         )
-        return Result(state=new_state, control=Control.Continue(response))
+        return Result(state=new_state, value=response, control=Control.Continue())
 
     return Agent(_run)  # type: ignore[arg-type]
 
@@ -118,7 +118,7 @@ Write a brief, unified summary (2-3 paragraphs)."""
             shared=ms.shared + (f"Summary:\n{response}",),
             locals=ms.locals,
         )
-        return Result(state=new_state, control=Control.Continue(response))
+        return Result(state=new_state, value=response, control=Control.Continue())
 
     return Agent(_run)  # type: ignore[arg-type]
 
@@ -137,7 +137,7 @@ def create_reviewer() -> Agent[MultiState, str]:
                 shared=ms.shared,
                 locals=ms.locals,
             )
-            return Result(state=new_state, control=Control.Continue("No summary to review"))
+            return Result(state=new_state, value="No summary to review", control=Control.Continue())
 
         prompt = f"""You are an editor. Review and improve the following text for clarity and accuracy:
 
@@ -152,7 +152,7 @@ Provide the improved version. If it's good as-is, just return it unchanged."""
             shared=ms.shared + (f"Final:\n{response}",),
             locals=ms.locals,
         )
-        return Result(state=new_state, control=Control.Continue(response))
+        return Result(state=new_state, value=response, control=Control.Continue())
 
     return Agent(_run)  # type: ignore[arg-type]
 
@@ -218,32 +218,32 @@ async def main():
     # Step 1: Research - break down into sub-topics
     print("Step 1: Researcher breaking down topic...")
     r1 = await handoff("researcher").run(env)
-    print(f"  → {r1.control.value[:100]}...")
+    print(f"  → {r1.value[:100]}...")
     print()
 
     # Step 2: Fetch - get info on sub-topics (simplified: just use original topic)
     print("Step 2: Fetcher gathering information...")
     r2 = await handoff("fetcher").run(env.with_state(r1.state))
-    print(f"  → {r2.control.value[:100]}...")
+    print(f"  → {r2.value[:100]}...")
     print()
 
     # Step 3: Synthesize
     print("Step 3: Synthesizer creating summary...")
     r3 = await handoff("synthesizer").run(env.with_state(r2.state))
-    print(f"  → {r3.control.value[:100]}...")
+    print(f"  → {r3.value[:100]}...")
     print()
 
     # Step 4: Review
     print("Step 4: Reviewer improving output...")
     r4 = await handoff("reviewer").run(env.with_state(r3.state))
-    print(f"  → {r4.control.value[:100]}...")
+    print(f"  → {r4.value[:100]}...")
     print()
 
     # Show final result
     print("=" * 60)
     print("Final Output:")
     print("=" * 60)
-    print(r4.control.value)
+    print(r4.value)
     print()
 
     # Show all shared messages

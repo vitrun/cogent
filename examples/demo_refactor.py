@@ -15,8 +15,8 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any
 
-from cogent.core import Agent, Control, Env, MemoryPort, ModelPort, Result, Sink, ToolPort
-from cogent.core.memory import Context, InMemoryContext
+from cogent.kernel import Agent, Control, Env, MemoryPort, ModelPort, Result, SinkPort, ToolPort
+from cogent.kernel.env import Context, InMemoryContext
 
 
 # =============================================================================
@@ -62,7 +62,7 @@ class DummyModel(ModelPort):
     async def complete(self, prompt: str) -> str:
         return f"Response to: {prompt[:20]}..."
 
-    async def stream_complete(self, prompt: str, ctx: Sink) -> str:
+    async def stream_complete(self, prompt: str, ctx: SinkPort) -> str:
         response = f"Streaming: {prompt[:20]}..."
         for char in response:
             await ctx.send(char)
@@ -78,7 +78,7 @@ class DummyTools(ToolPort):
         return f"Tool {name} called with {args}"
 
 
-class DummySink(Sink):
+class DummySink(SinkPort):
     """Dummy sink that collects chunks."""
 
     def __init__(self):

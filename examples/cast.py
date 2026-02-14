@@ -91,8 +91,8 @@ async def example_basic_cast():
     result = await agent.run(make_fake_env())
 
     print(f"Input: {json_value}")
-    print(f"Output type: {type(result.control.value).__name__}")
-    print(f"Output value: {result.control.value}")
+    print(f"Output type: {type(result.value).__name__}")
+    print(f"Output value: {result.value}")
     print(f"Control kind: {result.control.kind}")
 
 
@@ -116,7 +116,7 @@ async def example_chain_cast():
 
     print(f"Input: 5")
     print(f"After double: 10")
-    print(f"Final output: {result.control.value}")
+    print(f"Final output: {result.value}")
 
 
 async def example_dict_schema():
@@ -135,7 +135,7 @@ async def example_dict_schema():
     result = await agent.run(make_fake_env())
 
     print(f"Input: {dict_value}")
-    print(f"Validated: {result.control.value}")
+    print(f"Validated: {result.value}")
     print(f"Control: {result.control.kind}")
 
 
@@ -143,7 +143,7 @@ async def example_insert_after_tool():
     """Example: cast inserted after a tool step."""
     print("\n=== Cast After Tool Step ===")
 
-    from cogent.core.result import Control, Result
+    from cogent.kernel.result import Control, Result
 
     # Step that simulates tool returning JSON
     async def tool_step(s, v, env):
@@ -157,8 +157,8 @@ async def example_insert_after_tool():
     result = await agent.run(make_fake_env())
 
     print(f"Tool output: {{'name': 'Bob', 'email': 'bob@test.com'}}")
-    print(f"Cast to: {result.control.value}")
-    print(f"Type: {type(result.control.value).__name__}")
+    print(f"Cast to: {result.value}")
+    print(f"Type: {type(result.value).__name__}")
 
 
 async def example_type_propagation():

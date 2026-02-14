@@ -20,7 +20,7 @@ import asyncio
 from typing import Any
 
 from cogent import Agent, Control, Result, Env, TraceContext
-from cogent.multi import MultiState, MultiEnv, AgentRegistry, concurrent
+from cogent.combinators import MultiState, MultiEnv, AgentRegistry, concurrent
 
 
 # Define a simple state type for examples

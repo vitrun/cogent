@@ -4,15 +4,15 @@ import os
 from litellm import completion
 
 from cogent import Env, ReActState, ToolUse, ToolRegistry, Agent, Result, Control, default_registry
-from cogent.core import ModelPort, ToolPort
-from cogent.core.env import RuntimeContext
+from cogent.kernel import ModelPort, ToolPort
+from cogent.kernel.ports import SinkPort
 
 
 async def plan_action(state: ReActState, task: str, env: Env) -> Result[ReActState, ToolUse]:
     _ = env
     call = ToolUse(id="tool-1", name="search", args={"query": task})
-    next_state = state.with_history(f"Plan: call {call.name} with query='{task}'.")
-    return Result(next_state, control=Control.Continue(call))
+    next_state = state.with_context(f"Plan: call {call.name} with query='{task}'.")
+    return Result(next_state, value=call, control=Control.Continue())
 
 
 async def execute_tool(
@@ -20,11 +20,11 @@ async def execute_tool(
 ) -> Result[ReActState, str]:
     try:
         result = await env.tools.call(call.name, call.args)
-        next_state = state.with_history(f"Tool Result ({call.name}): {result}")
-        return Result(next_state, control=Control.Continue(result))
+        next_state = state.with_context(f"Tool Result ({call.name}): {result}")
+        return Result(next_state, value=result, control=Control.Continue())
     except Exception as e:
         error_msg = f"Tool error: {e}"
-        next_state = state.with_history(f"Tool Result ({call.name}): {error_msg}")
+        next_state = state.with_context(f"Tool Result ({call.name}): {error_msg}")
         return Result(next_state, control=Control.Error(error_msg))
 
 
@@ -35,15 +35,15 @@ async def synthesize_answer(state: ReActState, tool_output: str, env: Env) -> Re
     # Call model to get answer
     answer = await env.model.complete(prompt)
     
-    next_state = state.with_history("Synthesized final answer using LLM.")
-    return Result(next_state, control=Control.Continue(answer))
+    next_state = state.with_context("Synthesized final answer using LLM.")
+    return Result(next_state, value=answer, control=Control.Continue())
 
 
 async def format_output(state: ReActState, answer: str, env: Env) -> Result[ReActState, str]:
     _ = env
     formatted = f"Final Report:\n{answer}"
-    next_state = state.with_history("Formatted response for delivery.")
-    return Result(next_state, control=Control.Continue(formatted))
+    next_state = state.with_context("Formatted response for delivery.")
+    return Result(next_state, value=formatted, control=Control.Continue())
 
 
 class LiteLLMModel(ModelPort):
@@ -68,7 +68,7 @@ class LiteLLMModel(ModelPort):
         # Extract the content from response
         return response.choices[0].message.content
     
-    async def stream_complete(self, prompt: str, ctx: RuntimeContext) -> str:
+    async def stream_complete(self, prompt: str, ctx: SinkPort) -> str:
         """Stream complete a prompt using LiteLLM."""
         # Set environment variables if provided
         if os.environ.get("ANTHROPIC_BASE_URL"):
@@ -87,7 +87,7 @@ class LiteLLMModel(ModelPort):
             if chunk.choices and chunk.choices[0].delta:
                 content = chunk.choices[0].delta.content
                 if content:
-                    await ctx.emit(content)
+                    await ctx.send(content)
                     full_content += content
         
         await ctx.close()
@@ -134,4 +134,4 @@ if __name__ == "__main__":
         print("Warning: ANTHROPIC_API_KEY environment variable not set")
     
     res = asyncio.run(run_simple_agent("What is the capital of France?", make_litellm_env()))
-    print(res.control.value)
+    print(res.value)
