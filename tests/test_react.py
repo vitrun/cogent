@@ -5,6 +5,7 @@ from fakes import FakeTools, make_fake_env
 
 from cogent.agents import ReActConfig, ReActState
 from cogent.agents.react.policy import ReActPolicy, react_decide
+from cogent.combinators import repeat
 
 
 def test_react_decide_invalid_json() -> None:
@@ -29,8 +30,9 @@ def test_react_final_halts() -> None:
 
     initial_state = ReActState()
     policy = ReActPolicy(ReActConfig())
-    flow = policy.run(initial_state)
-    result = asyncio.run(flow.run(initial_state, env))
+    round_agent = policy.build(initial_state, "")
+    agent = repeat(round_agent, 10, initial_state)
+    result = asyncio.run(agent.run(initial_state, env))
 
     assert result.control.kind == "halt"
     assert result.value == "Answer"
@@ -51,8 +53,9 @@ def test_react_tool_then_final() -> None:
 
     initial_state = ReActState()
     policy = ReActPolicy(ReActConfig())
-    flow = policy.run(initial_state)
-    result = asyncio.run(flow.run(initial_state, env))
+    round_agent = policy.build(initial_state, "")
+    agent = repeat(round_agent, 10, initial_state)
+    result = asyncio.run(agent.run(initial_state, env))
 
     assert result.control.kind == "halt"
     assert result.value == "ok"

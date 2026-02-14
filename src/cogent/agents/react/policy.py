@@ -27,7 +27,8 @@ class ReActOutput(BaseModel):
 
 @dataclass(frozen=True)
 class ReActConfig:
-    max_steps: int = 10
+    """Configuration for ReAct policy."""
+    pass
 
 
 def _append_scratchpad(state: ReActStateProtocol[S], line: str) -> S:
@@ -93,7 +94,7 @@ async def react_decide(state: ReActStateProtocol[S], model_output: str, env: Env
 
 
 class ReActPolicy(Generic[S]):
-    """ReAct policy that orchestrates the pipeline, independent of provider."""
+    """ReAct policy that constructs the pipeline, independent of provider."""
 
     def __init__(self, config: ReActConfig):
         self.config = config
@@ -156,26 +157,26 @@ class ReActPolicy(Generic[S]):
             return state.with_scratchpad(f"{state.scratchpad}\n{line}")
         return state.with_scratchpad(line)
 
-    def run(self, initial_state: S, task: str = "") -> Agent[S, str]:
-        """Run ReAct agent with optimized recursive loop."""
-        def loop(state: S, step_index: int) -> Agent[S, str]:
-            async def continue_or_halt(
-                next_state: S, value: str, env: Env
-            ) -> Result[S, str]:
-                next_step = step_index + 1
-                if next_step >= self.config.max_steps:
-                    return Result(next_state, value=value, control=Control.Halt())
-                result = await loop(next_state, next_step).run(next_state, env)
-                return result
+    def build(self, initial_state: S, task: str) -> Agent[S, str]:
+        """Build one ReAct round: prompt → think → decide → act → observe.
 
-            return (
-                Agent.start(state, task)
-                .then(self.prompt)
-                .then(self.think)
-                .then(self.decide)
-                .then(self.act)
-                .then(self.observe)
-                .then(continue_or_halt)
-            )
+        Returns an Agent that executes a single iteration of the ReAct loop.
+        Use repeat() to execute multiple rounds.
 
-        return loop(initial_state, 0)
+        Note: Does not use Agent.start to allow state threading across repeat iterations.
+        The agent expects to receive state via agent.run(state, env).
+        """
+        # Use initial_state as default, but allow incoming state to override
+        async def start_step(state: S, _: None, env: Env) -> Result[S, str]:
+            # Use incoming state if provided, otherwise use initial_state
+            current_state = state if state is not None else initial_state
+            return Result(state=current_state, value=task, control=Control.Continue())
+
+        return (
+            Agent(_run=lambda s, e: start_step(s, None, e))
+            .then(self.prompt)
+            .then(self.think)
+            .then(self.decide)
+            .then(self.act)
+            .then(self.observe)
+        )

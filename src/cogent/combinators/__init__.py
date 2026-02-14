@@ -110,11 +110,12 @@ def repeat(
         next_value = result.value
         return await repeat_step(result.state, next_value, env, new_remaining)
 
-    # Start the chain with initial state, then apply repeat steps
-    async def repeat_wrapper(s: S, v: V | None, env: Env) -> Result[S, V]:
-        return await repeat_step(s, v, env, max_steps)
+    # Use initial_state for first iteration
+    async def repeat_wrapper(state: S, env: Env) -> Result[S, V]:
+        # Ignore incoming state, always start from initial_state
+        return await repeat_step(initial_state, None, env, max_steps)
 
-    return Agent.start(initial_state).then(repeat_wrapper)
+    return Agent(_run=repeat_wrapper)
 
 
 def merge_states(states: list[MultiState]) -> MultiState:
