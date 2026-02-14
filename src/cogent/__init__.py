@@ -2,7 +2,7 @@
 
 from cogent.agents import ReActConfig, ReActState
 from cogent.kernel import Agent, Control, Result, TraceContext
-from cogent.kernel.types import ToolResult, ToolUse
+from cogent.kernel.tool import ToolResult, ToolUse
 from cogent.runtime import Env, ToolRegistry, default_registry
 
 __all__ = [

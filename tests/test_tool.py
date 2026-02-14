@@ -7,7 +7,7 @@ from typing import Dict, Any
 from cogent.agents import ReActConfig, ReActState
 from cogent.agents.react.policy import ReActPolicy
 from cogent.kernel import Control, Result
-from cogent.kernel.types import ToolDefinition, ToolParameter, ToolResult, ToolUse
+from cogent.kernel.tool import ToolDefinition, ToolParameter, ToolResult, ToolUse
 from cogent.runtime import Env, create_tool_execution_step, ToolRegistry
 
 from fakes import FakeModel, FakeTools, FakeMemory

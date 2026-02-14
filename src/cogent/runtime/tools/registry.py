@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
 from cogent.kernel.result import Control, Result
-from cogent.kernel.types import ToolDefinition, ToolResult, ToolUse
+from cogent.kernel.tool import ToolDefinition, ToolResult, ToolUse
 
 ToolHandler = Callable[[Any, Any, ToolUse], Awaitable[str] | str]
 

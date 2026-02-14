@@ -11,7 +11,7 @@ from pydantic import BaseModel, ValidationError
 from cogent.kernel.agent import Agent
 from cogent.kernel.ports import Env
 from cogent.kernel.result import Control, Result
-from cogent.kernel.types import ToolResult, ToolUse
+from cogent.kernel.tool import ToolResult, ToolUse
 
 from .protocols import ReActStateProtocol
 
