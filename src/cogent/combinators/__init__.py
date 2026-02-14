@@ -64,7 +64,6 @@ def concurrent(
 def repeat(
     agent: Agent[S, V],
     max_steps: int,
-    initial_state: S,
 ) -> Agent[S, V]:
     """Repeat an agent up to max_steps times.
 
@@ -76,7 +75,6 @@ def repeat(
     Args:
         agent: The agent to repeat
         max_steps: Maximum number of iterations (must be > 0)
-        initial_state: Initial state for the first iteration
 
     Returns:
         New Agent that executes the inner agent up to max_steps times
@@ -85,14 +83,8 @@ def repeat(
     if max_steps <= 0:
         raise ValueError("max_steps must be positive")
 
-    async def repeat_step(
-        state: S,
-        value: V | None,
-        env: Env,
-        remaining: int,
-    ) -> Result[S, V]:
-        """Recursive step that runs the agent and checks control."""
-        # Pass state explicitly to agent.run
+    async def repeat_loop(state: S, env: Env, remaining: int) -> Result[S, V]:
+        """Loop that runs the agent and checks control."""
         result = await agent.run(state, env)
 
         # Stop on halt or error
@@ -107,13 +99,10 @@ def repeat(
             return result
 
         # Continue with next iteration, threading state forward
-        next_value = result.value
-        return await repeat_step(result.state, next_value, env, new_remaining)
+        return await repeat_loop(result.state, env, new_remaining)
 
-    # Use initial_state for first iteration
     async def repeat_wrapper(state: S, env: Env) -> Result[S, V]:
-        # Ignore incoming state, always start from initial_state
-        return await repeat_step(initial_state, None, env, max_steps)
+        return await repeat_loop(state, env, max_steps)
 
     return Agent(_run=repeat_wrapper)
 

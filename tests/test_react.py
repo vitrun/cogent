@@ -31,7 +31,7 @@ def test_react_final_halts() -> None:
     initial_state = ReActState()
     policy = ReActPolicy(ReActConfig())
     round_agent = policy.build(initial_state, "")
-    agent = repeat(round_agent, 10, initial_state)
+    agent = repeat(round_agent, 10)
     result = asyncio.run(agent.run(initial_state, env))
 
     assert result.control.kind == "halt"
@@ -54,7 +54,7 @@ def test_react_tool_then_final() -> None:
     initial_state = ReActState()
     policy = ReActPolicy(ReActConfig())
     round_agent = policy.build(initial_state, "")
-    agent = repeat(round_agent, 10, initial_state)
+    agent = repeat(round_agent, 10)
     result = asyncio.run(agent.run(initial_state, env))
 
     assert result.control.kind == "halt"
