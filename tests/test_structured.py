@@ -195,7 +195,7 @@ def test_agent_cast_with_json_string() -> None:
         schema = CallableSchema(parse_user_profile)
         flow = Agent.start("state", '{"name": "Dave", "email": "dave@example.com"}')
         flow = flow.cast(schema)
-        return await flow.run(make_fake_env())
+        return await flow.run("state", make_fake_env())
 
     result = asyncio.run(run_flow())
     assert result.control.kind == "continue"
@@ -209,7 +209,7 @@ def test_agent_cast_with_dict() -> None:
         schema = CallableSchema(parse_user_profile)
         flow = Agent.start("state", {"name": "Eve", "email": "eve@example.com"})
         flow = flow.cast(schema)
-        return await flow.run(make_fake_env())
+        return await flow.run("state", make_fake_env())
 
     result = asyncio.run(run_flow())
     assert result.control.kind == "continue"
@@ -226,7 +226,7 @@ def test_agent_cast_chain_multiple() -> None:
         flow = Agent.start("state", 5)
         flow = flow.cast(CallableSchema(double))
         flow = flow.cast(CallableSchema(double))
-        return await flow.run(make_fake_env())
+        return await flow.run("state", make_fake_env())
 
     result = asyncio.run(run_flow())
     assert result.control.kind == "continue"
@@ -245,7 +245,7 @@ def test_agent_cast_insert_after_step() -> None:
         flow = Agent.start("state", "initial")
         flow = flow.then(tool_step)  # First step produces JSON string
         flow = flow.cast(schema)  # Then cast to UserProfile
-        return await flow.run(make_fake_env())
+        return await flow.run("state", make_fake_env())
 
     result = asyncio.run(run_flow())
     assert result.control.kind == "continue"

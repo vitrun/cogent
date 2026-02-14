@@ -233,7 +233,7 @@ def test_workflow_integration():
             .then(write_report)
         )
         env = make_fake_env()
-        return await workflow.run(env)
+        return await workflow.run(initial_state, env)
 
     result = asyncio.run(run_workflow())
 

@@ -23,7 +23,7 @@ def concurrent(
     Returns merged state and raw list of branch Results.
     Developers must explicitly write a step to interpret branch Results.
     """
-    async def _run(env: MultiEnv) -> Result[MultiState, list[Result[MultiState, Any]]]:
+    async def _run(state: MultiState, env: MultiEnv) -> Result[MultiState, list[Result[MultiState, Any]]]:
         trace = env.trace if hasattr(env, 'trace') else None
 
         # Record parallel_begin
@@ -32,7 +32,7 @@ def concurrent(
             parallel_id = trace.record("parallel_begin")
 
         # Execute all agents concurrently
-        tasks = [agent.run(env) for agent in agents]
+        tasks = [agent.run(state, env) for agent in agents]
         results: list[Result[MultiState, Any]] = await asyncio.gather(*tasks)
 
         # Record each branch as child event
@@ -59,6 +59,62 @@ def concurrent(
         )
 
     return Agent(_run)  # type: ignore[arg-type]
+
+
+def repeat(
+    agent: Agent[S, V],
+    max_steps: int,
+    initial_state: S,
+) -> Agent[S, V]:
+    """Repeat an agent up to max_steps times.
+
+    Executes the wrapped agent repeatedly, stopping when:
+    - Control.Halt is returned
+    - Control.Error is returned
+    - max_steps is reached
+
+    Args:
+        agent: The agent to repeat
+        max_steps: Maximum number of iterations (must be > 0)
+        initial_state: Initial state for the first iteration
+
+    Returns:
+        New Agent that executes the inner agent up to max_steps times
+    """
+
+    if max_steps <= 0:
+        raise ValueError("max_steps must be positive")
+
+    async def repeat_step(
+        state: S,
+        value: V | None,
+        env: Env,
+        remaining: int,
+    ) -> Result[S, V]:
+        """Recursive step that runs the agent and checks control."""
+        # Pass state explicitly to agent.run
+        result = await agent.run(state, env)
+
+        # Stop on halt or error
+        if result.control.kind == "halt":
+            return result
+        if result.control.kind == "error":
+            return result
+
+        # Check if we've reached max steps
+        new_remaining = remaining - 1
+        if new_remaining <= 0:
+            return result
+
+        # Continue with next iteration, threading state forward
+        next_value = result.value
+        return await repeat_step(result.state, next_value, env, new_remaining)
+
+    # Start the chain with initial state, then apply repeat steps
+    async def repeat_wrapper(s: S, v: V | None, env: Env) -> Result[S, V]:
+        return await repeat_step(s, v, env, max_steps)
+
+    return Agent.start(initial_state).then(repeat_wrapper)
 
 
 def merge_states(states: list[MultiState]) -> MultiState:
@@ -112,17 +168,8 @@ class MultiEnv(Env):
 
     Extends Env with:
     - registry: For looking up agents by name
-    - state: The current MultiState
+
+    Note: State flows through Result, not Env. Each agent receives
+    state explicitly via Agent.run(state, env).
     """
     registry: AgentRegistry = field(default_factory=AgentRegistry)
-    state: MultiState = field(default_factory=lambda: MultiState(current=""))
-
-    def with_state(self, new_state: MultiState) -> MultiEnv:
-        """Create a new MultiEnv with updated state."""
-        return MultiEnv(
-            model=self.model,
-            tools=self.tools,
-            sink=self.sink,
-            registry=self.registry,
-            state=new_state,
-        )

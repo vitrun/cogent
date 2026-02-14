@@ -30,7 +30,7 @@ class Agent(Generic[S, V]):
     Capabilities can be registered via register_op() for extensibility.
     """
 
-    _run: Callable[[Env], Awaitable[Result[S, V]]]
+    _run: Callable[[S, Env], Awaitable[Result[S, V]]]
 
     @classmethod
     def register_op(cls, name: str, fn: Callable[..., Any]) -> None:
@@ -50,10 +50,16 @@ class Agent(Generic[S, V]):
             return lambda *args, **kwargs: fn(self, *args, **kwargs)
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
-    async def run(self, env: Env, on_stream_chunk: Callable[[str], None] | None = None) -> Result[S, V]:
+    async def run(
+        self,
+        state: S,
+        env: Env,
+        on_stream_chunk: Callable[[str], None] | None = None,
+    ) -> Result[S, V]:
         """Run the agent and return a Result.
 
         Args:
+            state: Initial state for agent execution
             env: Environment with model and tools
             on_stream_chunk: Optional callback for streaming LLM output
 
@@ -90,7 +96,7 @@ class Agent(Generic[S, V]):
 
             # Execute step exactly once - no retry loop at runtime level
             start_time = time.perf_counter()
-            result = await self._run(env_to_run)
+            result = await self._run(state, env_to_run)
             duration_ms = (time.perf_counter() - start_time) * 1000
 
             # Record step_end with control info
@@ -107,7 +113,7 @@ class Agent(Generic[S, V]):
             if sink is not None:
                 await sink.close()
 
-    def _create(self, run_func: Callable[[Env], Awaitable[Result[S, R]]]) -> Agent[S, R]:
+    def _create(self, run_func: Callable[[S, Env], Awaitable[Result[S, R]]]) -> Agent[S, R]:
         """Create a new agent instance."""
         return Agent(_run=run_func)
 
@@ -124,8 +130,8 @@ class Agent(Generic[S, V]):
         Each step is fully responsible for handling its own retry_clean / retry_dirty logic.
         Runtime only interprets Control and records trace.
         """
-        async def new_run(env: Env) -> Result[S, R]:
-            current_flow = await self.run(env)
+        async def new_run(state: S, env: Env) -> Result[S, R]:
+            current_flow = await self.run(state, env)
             if current_flow.control.kind == "error":
                 return Result(
                     state=current_flow.state,
@@ -153,8 +159,8 @@ class Agent(Generic[S, V]):
         return self._create(new_run)
 
     def map(self, func: Callable[[V], R]) -> Agent[S, R]:
-        async def new_run(env: Env) -> Result[S, R]:
-            current_flow = await self.run(env)
+        async def new_run(state: S, env: Env) -> Result[S, R]:
+            current_flow = await self.run(state, env)
             if current_flow.control.kind == "error":
                 return Result(
                     state=current_flow.state,
@@ -185,8 +191,8 @@ class Agent(Generic[S, V]):
 
     def recover(self, recovery_func: Callable[[Any], V]) -> Agent[S, V]:
         """Recover from error with recovery function."""
-        async def new_run(env: Env) -> Result[S, V]:
-            current_flow = await self.run(env)
+        async def new_run(state: S, env: Env) -> Result[S, V]:
+            current_flow = await self.run(state, env)
             if current_flow.control.kind != "error":
                 return Result(
                     state=current_flow.state,
@@ -209,11 +215,17 @@ class Agent(Generic[S, V]):
         return self._create(new_run)
 
     @staticmethod
-    def start(state: S, initial_value: V | None = None) -> Agent[S, V]:
-        async def run_func(_: Env) -> Result[S, V]:
+    def start(initial_state: S, initial_value: V | None = None) -> Agent[S, V]:
+        """Create an Agent that starts from initial_state.
+
+        The returned Agent ignores any incoming state and always starts
+        from initial_state.
+        """
+        async def run_func(state: S, _: Env) -> Result[S, V]:
+            # Ignore incoming state, always use initial_state
             if initial_value is not None:
-                return Result(state, value=initial_value, control=Control.Continue())
+                return Result(initial_state, value=initial_value, control=Control.Continue())
             # When initial_value is None, use state as value (type cast for V=S case)
-            return Result(state, value=state, control=Control.Continue())  # type: ignore[arg-type]
+            return Result(initial_state, value=initial_state, control=Control.Continue())  # type: ignore[arg-type]
 
         return Agent(_run=run_func)

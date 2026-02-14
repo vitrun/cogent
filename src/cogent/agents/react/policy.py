@@ -165,7 +165,7 @@ class ReActPolicy(Generic[S]):
                 next_step = step_index + 1
                 if next_step >= self.config.max_steps:
                     return Result(next_state, value=value, control=Control.Halt())
-                result = await loop(next_state, next_step).run(env)
+                result = await loop(next_state, next_step).run(next_state, env)
                 return result
 
             return (

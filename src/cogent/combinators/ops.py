@@ -26,11 +26,11 @@ def handoff(target: str) -> Agent[MultiState, Any]:
     Returns:
         Agent[MultiState, Any]: A new agent that performs the handoff.
     """
-    async def _run(env: MultiEnv) -> Result[MultiState, Any]:
+    async def _run(state: MultiState, env: MultiEnv) -> Result[MultiState, Any]:
         agent = env.registry.get(target)
 
-        # Execute the target agent with current MultiEnv
-        result = await agent.run(env)
+        # Execute the target agent with current state and MultiEnv
+        result = await agent.run(state, env)
 
         # Use the inner agent's resulting state
         # This preserves shared messages and locals from the inner agent
@@ -60,12 +60,11 @@ def emit(msg: Any) -> Agent[MultiState, None]:
     Returns:
         Agent[MultiState, None]: A new agent that emits the message.
     """
-    async def _run(env: MultiEnv) -> Result[MultiState, None]:
-        ms = env.state
+    async def _run(state: MultiState, env: MultiEnv) -> Result[MultiState, None]:
         new_state = MultiState(
-            current=ms.current,
-            shared=ms.shared + (msg,),
-            locals=ms.locals,
+            current=state.current,
+            shared=state.shared + (msg,),
+            locals=state.locals,
         )
         return Result(state=new_state, control=Control.Continue())
 
@@ -86,9 +85,9 @@ def route(selector: Callable[[MultiState], str]) -> Agent[MultiState, Any]:
     Returns:
         Agent[MultiState, Any]: A new agent that routes to the selected target.
     """
-    async def _run(env: MultiEnv) -> Result[MultiState, Any]:
-        target = selector(env.state)
-        return await handoff(target).run(env)
+    async def _run(state: MultiState, env: MultiEnv) -> Result[MultiState, Any]:
+        target = selector(state)
+        return await handoff(target).run(state, env)
 
     return Agent(_run)  # type: ignore[arg-type]
 
@@ -122,7 +121,7 @@ def concurrent(
             Returns merged state and raw list of branch Results.
             Developers must explicitly write a step to interpret branch Results.
     """
-    async def _run(env: MultiEnv) -> Result[MultiState, list[Result[MultiState, Any]]]:
+    async def _run(state: MultiState, env: MultiEnv) -> Result[MultiState, list[Result[MultiState, Any]]]:
         trace = env.trace if hasattr(env, 'trace') else None
 
         # Record parallel_begin
@@ -131,7 +130,7 @@ def concurrent(
             parallel_id = trace.record("parallel_begin")
 
         # Execute all agents concurrently
-        tasks = [agent.run(env) for agent in agents]
+        tasks = [agent.run(state, env) for agent in agents]
         results: list[Result[MultiState, Any]] = await asyncio.gather(*tasks)
 
         # Record each branch as child event

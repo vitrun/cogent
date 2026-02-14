@@ -30,7 +30,7 @@ def test_react_final_halts() -> None:
     initial_state = ReActState()
     policy = ReActPolicy(ReActConfig())
     flow = policy.run(initial_state)
-    result = asyncio.run(flow.run(env))
+    result = asyncio.run(flow.run(initial_state, env))
 
     assert result.control.kind == "halt"
     assert result.value == "Answer"
@@ -52,7 +52,7 @@ def test_react_tool_then_final() -> None:
     initial_state = ReActState()
     policy = ReActPolicy(ReActConfig())
     flow = policy.run(initial_state)
-    result = asyncio.run(flow.run(env))
+    result = asyncio.run(flow.run(initial_state, env))
 
     assert result.control.kind == "halt"
     assert result.value == "ok"
