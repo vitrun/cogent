@@ -229,3 +229,14 @@ class Agent(Generic[S, V]):
             return Result(initial_state, value=initial_state, control=Control.Continue())  # type: ignore[arg-type]
 
         return Agent(_run=run_func)
+
+    @staticmethod
+    def lift_value(value: V) -> Agent[S, V]:
+        """Create an Agent that lifts a value into the agent context.
+
+        The returned Agent passes through incoming state unchanged.
+        """
+        async def run_func(state: S, _: Env) -> Result[S, V]:
+            return Result(state=state, value=value, control=Control.Continue())
+
+        return Agent(_run=run_func)

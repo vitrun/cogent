@@ -157,23 +157,16 @@ class ReActPolicy(Generic[S]):
             return state.with_scratchpad(f"{state.scratchpad}\n{line}")
         return state.with_scratchpad(line)
 
-    def build(self, initial_state: S, task: str) -> Agent[S, str]:
+    def build(self, task: str) -> Agent[S, str]:
         """Build one ReAct round: prompt → think → decide → act → observe.
 
         Returns an Agent that executes a single iteration of the ReAct loop.
         Use repeat() to execute multiple rounds.
 
-        Note: Does not use Agent.start to allow state threading across repeat iterations.
-        The agent expects to receive state via agent.run(state, env).
+        Note: State flows from agent.run(state, env), not from build.
         """
-        # Use initial_state as default, but allow incoming state to override
-        async def start_step(state: S, _: None, env: Env) -> Result[S, str]:
-            # Use incoming state if provided, otherwise use initial_state
-            current_state = state if state is not None else initial_state
-            return Result(state=current_state, value=task, control=Control.Continue())
-
         return (
-            Agent(_run=lambda s, e: start_step(s, None, e))
+            Agent.lift_value(task)
             .then(self.prompt)
             .then(self.think)
             .then(self.decide)
