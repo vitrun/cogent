@@ -1,258 +1,283 @@
-## 0. Goal
+# rule.md
 
-This project implements a functional / monadic agent runtime (cogent).
-All implementations must revolve around the core abstraction of "composable state transformation", rather than around class inheritance, callback stitching, or implicit side effects.
+# 0. Goal
 
-The system's minimal abstraction unit is:
+cogent is a compositional agent kernel with product-level ergonomics.
 
-Step : State -> Effect[State]
+It is:
 
-Any design that does not satisfy this form should be considered a potential violation of architectural principles.
+- A minimal algebra for state transformation
+- A constrained runtime for agent execution
+- A product-facing SDK for practical usage
 
-## 1. Core Design Principles (Non-negotiable)
-### 1.1 Single Data Channel
+The system must balance:
 
-There can only be one explicit data flow in the system:
+- Mathematical integrity (kernel)
+- Architectural boundary discipline
+- Practical usability
 
-State  -->  Step  -->  State
+No feature may sacrifice architectural clarity for convenience.
 
-Prohibited:
 
-- Implicit global variables
-- Mutable shared contexts
-- Side-channel data transfer
-- Concealing state through closures between Steps
+# 1. Architectural Layers (Strict Boundaries)
 
-All state must be explicitly passed through State.
+cogent is divided into layers:
 
-### 1.2 Single Control Abstraction
+- kernel        → compositional algebra
+- ports         → external world interfaces
+- runtime       → default implementations
+- agents        → product-facing strategies
+- combinators   → higher-order agent composition
+- providers     → model adapters
+- structured    → typed output extension
 
-Control flow can only be expressed through monadic composition:
+## 1.1 Dependency Direction (Non-negotiable)
 
-- .then
-- .map
-- .flat_map
-- .recover
-- .guard
-- .branch
+Dependencies must flow downward only:
 
-Prohibited:
+agents
+↓
+combinators
+↓
+kernel
+↓
+(no dependency)
 
-- Writing flow control inside Steps (e.g., while True main loop)
-- Making a component the "dispatch center"
-- Maintaining additional control stacks outside the runtime
+runtime and providers implement ports but must not pollute kernel.
 
-Control flow must become "composable values".
+kernel must not depend on:
 
-### 1.3 Steps Must Be Pure Functional Boundaries
+- providers
+- runtime
+- concrete tool implementations
+- model-specific formats
 
-Each Step:
+If dependency direction is violated, the change must be rejected.
 
-- Input: Immutable State
-- Output: New State (encapsulated in Effect)
-- Must not modify input State
-- Must not hold internal cached state
 
-Side effects (LLM calls, tool calls, IO) must:
+# 2. Kernel Principles (Sacred Zone)
 
-- Be encapsulated within Effect
-- Be explicitly declared
-- Be replaceable with mocks
+The kernel defines how composition works.
+It does NOT define what agents do.
 
-### 1.4 Explicit Error Propagation (Left Bias)
+Kernel must remain:
 
-Errors must propagate through monadic short-circuiting.
+- Minimal
+- Abstract
+- Strategy-free
+- Business-logic-free
 
-Prohibited:
+Prohibited in kernel:
 
-- Swallowing exceptions after try/except
-- Using flags to indicate failure
-- Writing error fields in State for external judgment
+- ReAct logic
+- Built-in retry loops
+- Tool registry logic
+- Memory persistence logic
+- Model formatting
 
-Once failed:
+Kernel evolution must be rare and deliberate.
 
-- Subsequent steps must not execute
-- Failure must propagate up the pipeline
 
-### 1.5 No "Implicit Main Loop"
+# 3. Single Data Channel
 
-Prohibited:
+There is exactly one explicit data channel:
 
-```python
-while True:
-    think()
-    act()
-    observe()
-```
+State → Transformation → State
 
-Must be expressed as:
-
-```python
-step_think
-.then(step_act)
-.then(step_observe)
-.branch(...)
-```
-
-Loops must be constructed through recursive pipelines, not imperative loops.
-
-## 2. State Modeling Principles
-### 2.1 State Is the Complete World
-
-State must include:
-
-- User input
-- Historical messages
-- Current thinking
-- Tool call information
-- Observation results
-- Termination marker
+All data must flow through State.
 
 Prohibited:
 
-- Hiding partial state in runtime
-- Hiding history in agent internal properties
+- Hidden shared memory
+- Global mutable variables
+- Cross-step side-channel mutation
+- Injecting state via closures
 
-State is the system's single source of truth.
+State is the single source of truth.
 
-### 2.2 State Must Be Immutable
 
-Recommended:
+# 4. Control as Composition
 
-- dataclass(frozen=True)
-- Or explicit copy-on-write
+Control flow must be expressed as composable values.
 
-Prohibited: In-place modification of fields.
+The system must not:
 
-### 2.3 State Transformations Must Be Explicit
+- Embed while-loops as implicit drivers
+- Maintain external execution stacks
+- Introduce hidden dispatch centers
 
-Not allowed:
+Agents are values.
+Composition is structure.
+Execution is interpretation.
 
-```python
-state.messages.append(...)
-```
 
-Must be:
+# 5. Retry Semantics (Explicit Decision)
 
-```python
-new_state = state.with_messages(state.messages + [msg])
-```
+Retry is a Step-level concern.
 
-## 3. ReAct Behavior Replication Specification
+Retry must be represented structurally in the pipeline,
+not implemented as an outer execution loop.
 
-ReAct behavior must be decomposed into the following independent Steps:
+Correct:
 
-- build_prompt_step
-- llm_inference_step
-- parse_output_step
-- decide_branch_step
-- tool_execution_step
-- observation_append_step
-- termination_check_step
+Step → Result(Control=Retry) → Recomposition
 
-Each step:
+Incorrect:
 
-- Does only one thing
-- Does not cross responsibility boundaries
-- Does not mix LLM and tool
+while retry:
+    run_step()
 
-## 4. Effect Design Principles
+Retry must:
 
-Effect must:
+- Be explicit in Result / Control
+- Preserve state integrity
+- Not reset global runtime implicitly
+- Not hide failure history
 
-- Clearly distinguish between pure and async
-- Support mocks
-- Support tracing
-- Support cancellation
+Retry logic must remain composable.
 
-Recommended interface:
 
-- Effect.run()
-- Effect.map()
-- Effect.flat_map()
-- Effect.recover()
+# 6. Memory vs Context (Critical Distinction)
+
+Memory and Context are NOT the same concept.
+
+Memory:
+- Persistent knowledge storage
+- Long-lived
+- External to a single execution
+- Accessed via ports
+- Replaceable implementation (e.g., in-memory, vector DB)
+
+Context:
+- Execution-local accumulation of state
+- Ephemeral
+- Exists only within one agent run
+- Fully represented inside State
+
+Rules:
+
+- Memory must not mutate Context implicitly
+- Context must not reach into Memory directly
+- Memory access must go through explicit ports
+- Context must remain deterministic and serializable
+
+If these boundaries blur, architecture degrades.
+
+
+# 7. Effect Boundaries
+
+All side effects (LLM calls, tool calls, IO):
+
+- Must be isolated behind ports
+- Must be mockable
+- Must not leak into kernel logic
+
+Side effects must never define architecture.
+
+
+# 8. Combinators Discipline
+
+Combinators compose Agents.
+
+They must:
+
+- Preserve closure (Agent → Agent)
+- Not introduce runtime schedulers
+- Not become workflow engines
+- Not implement DAG orchestration systems
+
+If combinators begin to resemble a workflow framework,
+the design must be reconsidered.
+
+
+# 9. Product Layer Discipline
+
+Agents layer provides product-facing usability.
+
+It must:
+
+- Expose clear strategy types (e.g., ReActAgent)
+- Provide sensible defaults
+- Minimize required configuration
+- Hide kernel complexity from normal users
 
 Prohibited:
 
-- Directly awaiting external resources within Steps
-- Directly calling LLM client outside the runtime
+- Forcing users to construct Env manually
+- Exposing combinators in beginner workflows
+- Requiring understanding of monadic internals
 
-## 5. Failure-First Principle (Engineering Constraint)
+Kernel purity must not degrade usability.
 
-Before implementing any new capability, you must first answer:
 
-- At which stage will the system fail earliest?
+# 10. Error Semantics
 
-Common failure points:
+Failure must be structural.
 
-- Unparsable LLM output
-- Tool schema mismatch
-- Context loss due to state explosion
-- Recursive pipeline runaways
+Errors must:
 
-Each new feature must:
+- Propagate deterministically
+- Stop downstream execution
+- Avoid flag-based signaling
+- Avoid writing error markers into State
 
-- Identify the most likely failure point
-- Provide a protection strategy
-- Provide testable use cases
+Short-circuiting must be algebraic, not procedural.
 
-## 6. Prohibited Patterns
 
-The following patterns are strictly prohibited:
+# 11. Anti-Patterns
 
-❌ Agent class holding mutable state
-```python
-class Agent:
-    self.memory = []
-```
+Do not introduce:
 
-❌ Runtime becoming the brain
-```python
-runtime.run(agent)
-```
+- Hidden execution loops
+- State mutation outside transformation
+- Global registries inside kernel
+- Strategy logic inside kernel
+- Runtime logic creeping upward
+- Implicit retry outside Control
 
-❌ Central dispatcher pattern
-```python
-if state.phase == "think":
-```
+Convenience that weakens boundaries must be rejected.
 
-❌ Communication between Steps through shared objects
 
-## 7. Testing Specification
+# 12. Stability Gradient
 
-Each Step must:
+Stability increases downward:
 
-- Be testable in isolation
-- Not depend on external networks
-- Allow injection of mock LLM
+kernel      → most stable
+combinators
+agents
+providers
+runtime     → most replaceable
 
-Must cover:
+Breaking changes are increasingly unacceptable as you move downward.
 
-- Normal path
-- LLM output exception path
-- Tool failure path
-- Termination path
 
-## 8. Iteration Principles
+# 13. Design Decision Checklist
 
-Priority order:
+Before merging any feature, ask:
 
-1. Correctness
-2. Composability
-3. Testability
-4. Performance
+1. Does this belong in kernel?
+2. Does this violate dependency direction?
+3. Does this blur Memory and Context?
+4. Is retry implemented structurally or procedurally?
+5. Does this increase cognitive load for normal users?
+6. Can this be implemented at a higher layer instead?
 
-Do not sacrifice structural integrity for performance.
+If unsure, implement at the highest possible layer.
 
-## 9. Final Judgment Criteria
 
-After implementation, it must satisfy:
+# 14. What We Optimize For
 
-- Any Step can be plugged in
-- Any Step can be replaced
-- Any failure automatically short-circuits
-- Any pipeline can be nested
-- No hidden control flow
-- No hidden state
+cogent optimizes for:
 
-If any of the above cannot be satisfied, it is considered a violation of the cogent architecture.
+- Compositional clarity
+- Architectural boundary integrity
+- Product-level usability
+- Debuggability
+- Long-term maintainability
+
+It does NOT optimize for:
+
+- Maximum flexibility
+- Maximum abstraction
+- Experimental feature velocity
+- Becoming a workflow engine

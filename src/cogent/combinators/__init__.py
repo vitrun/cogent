@@ -83,26 +83,25 @@ def repeat(
     if max_steps <= 0:
         raise ValueError("max_steps must be positive")
 
-    async def repeat_loop(state: S, env: Env, remaining: int) -> Result[S, V]:
-        """Loop that runs the agent and checks control."""
-        result = await agent.run(state, env)
-
-        # Stop on halt or error
-        if result.control.kind == "halt":
-            return result
-        if result.control.kind == "error":
-            return result
-
-        # Check if we've reached max steps
-        new_remaining = remaining - 1
-        if new_remaining <= 0:
-            return result
-
-        # Continue with next iteration, threading state forward
-        return await repeat_loop(result.state, env, new_remaining)
-
     async def repeat_wrapper(state: S, env: Env) -> Result[S, V]:
-        return await repeat_loop(state, env, max_steps)
+        """Loop that runs the agent and checks control."""
+        current_state = state
+        result: Result[S, V] | None = None
+
+        for _ in range(max_steps):
+            result = await agent.run(current_state, env)
+
+            # Stop on halt or error
+            if result.control.kind == "halt":
+                return result
+            if result.control.kind == "error":
+                return result
+
+            # Continue with next iteration, threading state forward
+            current_state = result.state
+
+        # max_steps > 0 is validated above, so result is set
+        return result  # type: ignore[return-value]
 
     return Agent(_run=repeat_wrapper)
 
