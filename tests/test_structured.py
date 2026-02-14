@@ -193,7 +193,7 @@ def test_agent_cast_with_json_string() -> None:
     """Test Agent.cast with JSON string."""
     async def run_flow():
         schema = CallableSchema(parse_user_profile)
-        flow = Agent.start("state", '{"name": "Dave", "email": "dave@example.com"}')
+        flow = Agent.start('{"name": "Dave", "email": "dave@example.com"}')
         flow = flow.cast(schema)
         return await flow.run("state", make_fake_env())
 
@@ -207,7 +207,7 @@ def test_agent_cast_with_dict() -> None:
     """Test Agent.cast with dict."""
     async def run_flow():
         schema = CallableSchema(parse_user_profile)
-        flow = Agent.start("state", {"name": "Eve", "email": "eve@example.com"})
+        flow = Agent.start({"name": "Eve", "email": "eve@example.com"})
         flow = flow.cast(schema)
         return await flow.run("state", make_fake_env())
 
@@ -223,7 +223,7 @@ def test_agent_cast_chain_multiple() -> None:
         def double(x: int) -> int:
             return x * 2
 
-        flow = Agent.start("state", 5)
+        flow = Agent.start(5)
         flow = flow.cast(CallableSchema(double))
         flow = flow.cast(CallableSchema(double))
         return await flow.run("state", make_fake_env())
@@ -242,7 +242,7 @@ def test_agent_cast_insert_after_step() -> None:
             return Result(s, value='{"name": "Frank", "email": "frank@example.com"}', control=Control.Continue())
 
         schema = CallableSchema(parse_user_profile)
-        flow = Agent.start("state", "initial")
+        flow = Agent.start("initial")
         flow = flow.then(tool_step)  # First step produces JSON string
         flow = flow.cast(schema)  # Then cast to UserProfile
         return await flow.run("state", make_fake_env())
@@ -267,7 +267,7 @@ def test_agent_cast_type_propagation() -> None:
     schema = CallableSchema(parse_user_profile)
 
     # Create an agent with a specific value type
-    agent: Agent[str, str] = Agent.start("state", "value")
+    agent: Agent[str, str] = Agent.start("value")
 
     # Cast transforms the value type
     cast_agent: Agent[str, UserProfile] = agent.cast(schema)

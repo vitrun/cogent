@@ -227,7 +227,7 @@ def test_workflow_integration():
     async def run_workflow():
         # Execute workflow
         workflow = (
-            Agent.start(initial_state, "initial_data")
+            Agent.start("initial_data")
             .then(process_market_data)
             .then(apply_ml_model)
             .then(write_report)

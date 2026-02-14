@@ -11,7 +11,7 @@ def test_then_success() -> None:
             _ = env
             return Result(s, value=v + "-next", control=Control.Continue())
 
-        flow = Agent.start("state", "start").then(step)
+        flow = Agent.start("start").then(step)
         return await flow.run("state", make_fake_env())
 
     result = asyncio.run(run_flow())
@@ -25,7 +25,7 @@ def test_then_failure_short_circuit() -> None:
             _ = (v, env)
             return Result(s, control=Control.Error("error"))
 
-        flow = Agent.start("state", "start").then(failing_step)
+        flow = Agent.start("start").then(failing_step)
         return await flow.run("state", make_fake_env())
 
     result = asyncio.run(run_flow())
@@ -35,7 +35,7 @@ def test_then_failure_short_circuit() -> None:
 
 def test_map() -> None:
     async def run_flow():
-        base = Agent.start("state", 2)
+        base = Agent.start(2)
         mapped = base.map(lambda v: v + 1)
         return await mapped.run("state", make_fake_env())
 
@@ -50,7 +50,7 @@ def test_map_simplification() -> None:
     async def run_flow():
         # Before: would need a full then with async function
         # After: can use simple map
-        flow = Agent.start("state", 2).map(lambda v: v * 2)
+        flow = Agent.start(2).map(lambda v: v * 2)
         return await flow.run("state", make_fake_env())
 
     result = asyncio.run(run_flow())
@@ -68,7 +68,7 @@ def test_control_halt_propagates_value() -> None:
             _ = env
             return Result(s, value=v + "-next", control=Control.Continue())
 
-        flow = Agent.start("state", "start").then(halting_step).then(unreachable_step)
+        flow = Agent.start("start").then(halting_step).then(unreachable_step)
         return await flow.run("state", make_fake_env())
 
     result = asyncio.run(run_flow())
@@ -95,7 +95,7 @@ def test_control_retry_reruns_current_step() -> None:
                 return Result(s, control=Control.RetryClean("retry"))
             return Result(s, value=v + "-done", control=Control.Continue())
 
-        flow = Agent.start("state", "start").then(retrying_step)
+        flow = Agent.start("start").then(retrying_step)
         result = await flow.run("state", make_fake_env())
         return result, attempt_count
 
@@ -112,7 +112,7 @@ def test_control_propagates_across_combinators() -> None:
             _ = env
             return Result(s, value=v, control=Control.Halt())
 
-        flow = Agent.start("state", "start").then(halting_step).map(lambda v: v + "-map")
+        flow = Agent.start("start").then(halting_step).map(lambda v: v + "-map")
         return await flow.run("state", make_fake_env())
 
     map_result = asyncio.run(run_map_flow())
@@ -139,7 +139,7 @@ def test_control_retry_dirty_preserves_state() -> None:
                 return Result(new_state, control=Control.RetryDirty("retry"))
             return Result(new_state, value=v + "-done", control=Control.Continue())
 
-        flow = Agent.start("initial-state", "start").then(retrying_step)
+        flow = Agent.start("start").then(retrying_step)
         result = await flow.run("initial-state", make_fake_env())
         return result, attempt_count
 

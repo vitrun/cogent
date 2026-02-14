@@ -215,20 +215,12 @@ class Agent(Generic[S, V]):
         return self._create(new_run)
 
     @staticmethod
-    def start(initial_state: S, initial_value: V | None = None) -> Agent[S, V]:
-        """Create an Agent that starts from initial_state.
+    def start(value: V) -> Agent[S, V]:
+        """Create an Agent that starts with a value.
 
-        The returned Agent ignores any incoming state and always starts
-        from initial_state.
+        The returned Agent passes through incoming state unchanged.
         """
-        async def run_func(state: S, _: Env) -> Result[S, V]:
-            # Ignore incoming state, always use initial_state
-            if initial_value is not None:
-                return Result(initial_state, value=initial_value, control=Control.Continue())
-            # When initial_value is None, use state as value (type cast for V=S case)
-            return Result(initial_state, value=initial_state, control=Control.Continue())  # type: ignore[arg-type]
-
-        return Agent(_run=run_func)
+        return Agent.lift_value(value)
 
     @staticmethod
     def lift_value(value: V) -> Agent[S, V]:
