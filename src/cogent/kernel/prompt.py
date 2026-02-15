@@ -6,7 +6,7 @@ This module provides a minimal, production-grade prompt template system that sup
 - Version tracking
 - Prompt hashing
 - Metadata separation (structure vs rendered text)
-- Optional integration with TraceContext (metadata only)
+- Optional integration with Trace (metadata only)
 
 Architectural constraints:
 - Prompt is a structured artifact, not a raw string
@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from cogent.kernel.trace import TraceContext
+    from cogent.kernel.trace import Trace
 
 
 @dataclass(frozen=True)
@@ -156,10 +156,10 @@ class PromptRegistry:
 
 
 def record_prompt(
-    trace: TraceContext,
+    trace: Trace,
     prompt: RenderedPrompt,
     parent_id: int | None,
-) -> int:
+) -> int | None:
     """Record prompt rendering metadata to trace.
 
     This records only metadata about the rendered prompt, not the full content.

@@ -87,16 +87,28 @@ class Agent(Generic[S, V]):
 
         # Get trace context
         trace = env.trace if env else None
-        step_id = -1
+        step_id: int | None = None
 
         try:
             # Record step_begin if tracing enabled
             if trace is not None:
                 step_id = trace.record("step_begin")
+                if step_id is not None:
+                    trace.push(step_id)
 
             # Execute step exactly once - no retry loop at runtime level
             start_time = time.perf_counter()
-            result = await self._run(state, env_to_run)
+            try:
+                result = await self._run(state, env_to_run)
+            except Exception as exc:
+                # Record step_error and re-raise
+                if trace is not None:
+                    trace.record(
+                        "step_error",
+                        info={"error": str(exc)},
+                        parent_id=step_id,
+                    )
+                raise
             duration_ms = (time.perf_counter() - start_time) * 1000
 
             # Record step_end with control info
@@ -110,6 +122,8 @@ class Agent(Generic[S, V]):
 
             return result
         finally:
+            if trace is not None and step_id is not None:
+                trace.pop()
             if sink is not None:
                 await sink.close()
 

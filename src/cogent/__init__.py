@@ -1,7 +1,7 @@
 """Cogent - Principled AI Agent Orchestration."""
 
 from cogent.agents import ReActConfig, ReActState
-from cogent.kernel import Agent, Control, Result, TraceContext
+from cogent.kernel import Agent, Control, Result, Trace
 from cogent.kernel.tool import ToolResult, ToolUse
 from cogent.runtime import Env, ToolRegistry, default_registry
 
@@ -10,7 +10,7 @@ __all__ = [
     "Agent",
     "Control",
     "Result",
-    "TraceContext",
+    "Trace",
     "ToolUse",
     "ToolResult",
     # Ports

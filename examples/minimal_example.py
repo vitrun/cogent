@@ -19,7 +19,7 @@ Design principles:
 import asyncio
 from typing import Any
 
-from cogent import Agent, Control, Result, Env, TraceContext
+from cogent import Agent, Control, Result, Env, Trace
 from cogent.combinators import MultiState, MultiEnv, AgentRegistry, concurrent
 
 
@@ -40,7 +40,7 @@ class FakeModel:
         return await self.complete(prompt)
 
 
-def make_env(trace: TraceContext | None = None) -> Env:
+def make_env(trace: Trace | None = None) -> Env:
     """Create a fake environment for testing."""
     return Env(model=FakeModel(), trace=trace)
 
@@ -172,7 +172,7 @@ async def example_trace_enabled_vs_disabled() -> None:
     print(f"  Result: {result_no_trace.value}")
 
     # With tracing enabled
-    trace_ctx = TraceContext(enabled=True)
+    trace_ctx = Trace(enabled=True)
     agent = Agent.start("state", "value").then(simple_step)
     result_with_trace = await agent.run(make_env(trace=trace_ctx))
     print("\n--- Example 3b: Trace enabled ---")

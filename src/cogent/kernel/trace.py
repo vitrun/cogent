@@ -1,4 +1,9 @@
-"""Runtime trace infrastructure - separate from domain state."""
+"""Runtime trace infrastructure - separate from domain state.
+
+This module provides trace/evidence capture for execution profiling and debugging.
+Trace is runtime infrastructure - it does not participate in state transformation.
+Tree relationships are reconstructed only during visualization via as_tree().
+"""
 
 from __future__ import annotations
 
@@ -12,8 +17,8 @@ class Evidence:
     """Evidence represents execution events captured at runtime.
 
     This is runtime infrastructure, not business state.
-    Tree reconstruction happens only during visualization.
-    Supports hierarchical parent-child relationships.
+    Tree reconstruction happens only during visualization via as_tree().
+    Supports hierarchical parent-child relationships via _children.
     """
     action: str = ""
     id: int = field(default=0)
@@ -21,7 +26,7 @@ class Evidence:
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     info: dict[str, Any] = field(default_factory=dict)
     duration_ms: float | None = field(default=None)
-    _children: tuple[Evidence, ...] = field(default_factory=tuple, repr=False)
+    _children: tuple[Evidence, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         """Handle legacy argument order - first positional arg can be action or id."""
@@ -42,7 +47,11 @@ class Evidence:
         return self._children
 
     def child(self, action: str, info: dict[str, Any] | None = None) -> Evidence:
-        """Create a child evidence entry (immutable - returns new Evidence)."""
+        """Create a child evidence entry (immutable - returns new Evidence).
+
+        Creates a new Evidence with updated children chain.
+        Tree relationships are also reconstructed via as_tree() on the Trace.
+        """
         child_evidence = Evidence(
             action=action,
             id=self.id + 1,
@@ -73,13 +82,18 @@ class Evidence:
         for child in self._children:
             results.extend(child.find_all(**kwargs))
         if kwargs:
-            results = [e for e in results if all(e.info.get(k) == v or getattr(e, k, None) == v for k, v in kwargs.items())]
+            results = [
+                e for e in results
+                if all(e.info.get(k) == v or getattr(e, k, None) == v for k, v in kwargs.items())
+            ]
         return results
 
 
-@dataclass
-class TraceContext:
-    """Runtime-owned trace context for capturing execution events.
+class Trace:
+    """Runtime trace context for capturing execution events.
+
+    Uses stack-based nesting via push/pop for hierarchical parent-child relationships.
+    Thread-safe for single-threaded execution (async).
 
     Performance guarantees:
     - Trace disabled → single None check overhead
@@ -87,9 +101,29 @@ class TraceContext:
     - No recursive tree construction during execution
     - No UUID allocation
     """
-    enabled: bool = True
-    _events: list[Evidence] = field(default_factory=list)
-    _next_id: int = 0
+    def __init__(self, enabled: bool = True) -> None:
+        self.enabled = enabled
+        self._events: list[Evidence] = []
+        self._next_id: int = 0
+        self._stack: list[int] = []
+
+    def push(self, event_id: int) -> None:
+        """Push an event onto the stack for nested tracing.
+
+        Args:
+            event_id: The event ID to push as current parent
+        """
+        self._stack.append(event_id)
+
+    def pop(self) -> int | None:
+        """Pop the current stack frame.
+
+        Returns:
+            The parent event ID that was on top of stack, or None if stack is empty
+        """
+        if self._stack:
+            return self._stack.pop()
+        return None
 
     def record(
         self,
@@ -97,20 +131,28 @@ class TraceContext:
         info: dict[str, Any] | None = None,
         parent_id: int | None = None,
         duration_ms: float | None = None,
-    ) -> int:
+    ) -> int | None:
         """Record an evidence event.
 
         Args:
             action: What happened (e.g., "step_begin", "parallel_branch")
             info: Additional context
-            parent_id: Parent event ID for tree relationships
+            parent_id: Explicit parent event ID for tree relationships
             duration_ms: Execution duration
 
         Returns:
-            Event ID for linking child events, or -1 if tracing disabled
+            Event ID for linking child events, or None if tracing disabled
         """
         if not self.enabled:
-            return -1
+            return None
+
+        # Use stack top as parent if no explicit parent_id provided
+        if parent_id is not None:
+            effective_parent = parent_id
+        elif self._stack:
+            effective_parent = self._stack[-1]
+        else:
+            effective_parent = None
 
         event_id = self._next_id
         self._next_id += 1
@@ -119,7 +161,7 @@ class TraceContext:
             Evidence(
                 action=action,
                 id=event_id,
-                parent_id=parent_id,
+                parent_id=effective_parent,
                 timestamp=datetime.now(UTC),
                 info=info or {},
                 duration_ms=duration_ms,
@@ -153,3 +195,4 @@ class TraceContext:
         """Clear all events (for reuse)."""
         self._events.clear()
         self._next_id = 0
+        self._stack.clear()

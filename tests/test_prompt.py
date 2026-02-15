@@ -6,7 +6,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from cogent.kernel.prompt import PromptRegistry, PromptTemplate, record_prompt
-from cogent.kernel.trace import TraceContext
+from cogent.kernel.trace import Trace
 
 
 class TestRenderedPrompt:
@@ -202,10 +202,11 @@ class TestRecordPrompt:
             variables={"password"},
         )
         rendered = template.render({"password": "supersecret"})
-        trace = TraceContext(enabled=True)
+        trace = Trace(enabled=True)
 
         event_id = record_prompt(trace, rendered, parent_id=None)
 
+        assert event_id is not None
         assert event_id >= 0
         events = trace.get_events()
         assert len(events) == 1
@@ -229,10 +230,11 @@ class TestRecordPrompt:
             variables={"name"},
         )
         rendered = template.render({"name": "World"})
-        trace = TraceContext(enabled=True)
+        trace = Trace(enabled=True)
 
         event_id = record_prompt(trace, rendered, parent_id=42)
 
+        assert event_id is not None
         assert event_id >= 0
         events = trace.get_events()
         assert events[0].parent_id == 42
@@ -246,9 +248,9 @@ class TestRecordPrompt:
             variables={"name"},
         )
         rendered = template.render({"name": "World"})
-        trace = TraceContext(enabled=False)
+        trace = Trace(enabled=False)
 
         event_id = record_prompt(trace, rendered, parent_id=None)
 
-        assert event_id == -1
+        assert event_id is None
         assert len(trace.get_events()) == 0

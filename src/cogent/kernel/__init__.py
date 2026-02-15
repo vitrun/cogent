@@ -5,14 +5,14 @@ from cogent.kernel.env import Context, Env, InMemoryContext
 from cogent.kernel.ports import MemoryPort, ModelPort, SinkPort, ToolPort
 from cogent.kernel.result import Control, Result
 from cogent.kernel.tool import ToolDefinition, ToolParameter, ToolResult, ToolUse
-from cogent.kernel.trace import Evidence, TraceContext
+from cogent.kernel.trace import Evidence, Trace
 
 __all__ = [
     "Agent",
     "Control",
     "Result",
     "Evidence",
-    "TraceContext",
+    "Trace",
     "ToolUse",
     "ToolResult",
     "ToolDefinition",

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from cogent.kernel.ports import MemoryPort, ModelPort, SinkPort, ToolPort
-from cogent.kernel.trace import TraceContext
+from cogent.kernel.trace import Trace
 
 
 # Protocol: 裁剪策略
@@ -85,5 +85,5 @@ class Env:
     model: ModelPort
     tools: ToolPort | None = None
     memory: MemoryPort | None = None
-    trace: TraceContext | None = None
+    trace: Trace | None = None
     sink: SinkPort | None = None
