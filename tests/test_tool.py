@@ -5,9 +5,8 @@ from fakes import FakeModel, FakeTools
 
 from cogent.agents import ReActConfig, ReActState
 from cogent.agents.react.policy import ReActPolicy
-from cogent.kernel import Result
-from cogent.kernel.tool import ToolDefinition, ToolParameter, ToolResult, ToolUse
-from cogent.runtime import Env, ToolRegistry, create_tool_execution_step
+from cogent.kernel import Result, Env, ToolDefinition, ToolParameter, ToolResult, ToolUse
+from cogent.runtime import ToolRegistry
 
 
 class TestToolParameter:
@@ -215,59 +214,6 @@ class TestToolRegistry:
         
         assert result.failed
         assert "Tool error" in result.content
-
-
-class TestCreateToolExecutionStep:
-    """测试create_tool_execution_step函数"""
-    
-    @pytest.mark.asyncio
-    async def test_create_tool_execution_step(self):
-        """测试创建和使用工具执行步骤"""
-        registry = ToolRegistry()
-        
-        def test_tool(_env, _state, call):
-            return f"Result: {call.args.get('value')}"
-        
-        registry.register("test", test_tool)
-        
-        step = create_tool_execution_step(registry)
-        
-        state = ReActState()
-        call = ToolUse(id="1", name="test", args={"value": "test_value"})
-        
-        # 创建一个简单的env
-        fake_model = FakeModel([])
-        fake_tools = FakeTools({})
-        env = Env(model=fake_model, tools=fake_tools)
-        
-        result = await step(state, call, env)
-        
-        assert isinstance(result, Result)
-        assert result.control.kind == "continue"
-        assert isinstance(result.value, ToolResult)
-        assert result.value.content == "Result: test_value"
-    
-    @pytest.mark.asyncio
-    async def test_create_tool_execution_step_error(self):
-        """测试工具执行步骤的错误处理"""
-        registry = ToolRegistry()
-        
-        # 不注册工具
-        step = create_tool_execution_step(registry)
-        
-        state = ReActState()
-        call = ToolUse(id="1", name="nonexistent", args={})
-        
-        # 创建一个简单的env
-        fake_model = FakeModel([])
-        fake_tools = FakeTools({})
-        env = Env(model=fake_model, tools=fake_tools)
-        
-        result = await step(state, call, env)
-        
-        assert isinstance(result, Result)
-        assert result.control.kind == "error"
-        assert "Tool not found" in str(result.control.reason)
 
 
 class TestToolUseHistory:

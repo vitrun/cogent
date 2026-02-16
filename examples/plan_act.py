@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from litellm import completion
 
-from cogent import Env, ReActState, ToolUse, ToolRegistry, Agent, Result, Control, default_registry
+from cogent import Env, ReActState, ToolUse, ToolRegistry, Agent, Result, Control
 from cogent.kernel import ModelPort, ToolPort
 from cogent.kernel.ports import SinkPort
 

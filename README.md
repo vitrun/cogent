@@ -3,32 +3,32 @@
 ![Python 3.12+](https://img.shields.io/badge/python-3.12+-green.svg)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow.svg)](https://opensource.org/license/apache-2-0)
 
-Cogent is a principled architecture for AI agent orchestration that treats workflows as composable computations in a shared context. It formalizes how state, errors, and side effects propagate through agent steps, using the algebraic structures of Functors, Applicatives, and Monads.
+Cogent is a compositional agent kernel with product-level ergonomics. It provides a principled architecture for AI agent orchestration that treats workflows as composable computations in a shared context.
 
-This repository provides a Python implementation, including:
+This repository provides a Python implementation, organized into strict architectural layers. For detailed design principles, see [DESIGN.md](./DESIGN.md).
 
-- `AgentMonad`: sequential, stateful, fallible computation chains.
-- `AsyncAgentMonad`: async flows with Applicative parallelism via `gather`.
-- Pydantic models for structured state and tool calls/results.
+## Core Architecture
 
-## Core Idea
+Cogent is divided into layers with strict dependency boundaries:
 
-Cogent models an agent workflow as a single container that carries:
-
-- State (memory/history)
-- A value (current step output)
-- A success/failure signal
-
-The `.then()` operator composes steps. If any step fails, the chain short-circuits, preserving the error and state at the point of failure.
+- **kernel**: Minimal compositional algebra (most stable)
+- **combinators**: Higher-order agent composition
+- **agents**: Product-facing strategies (e.g., ReActAgent)
+- **providers**: Model adapters (litellm integration)
+- **runtime**: Default implementations
+- **structured**: Typed output extension
+- **model**: Model blocks
 
 ## Project Layout
 
-- `src/cogent/monads.py`: `AgentMonad` and `AsyncAgentMonad`.
-- `src/cogent/models.py`: pydantic models and a tool registry.
-- `src/cogent/steps.py`: reference steps from the paper (plan, execute, synthesize, format).
-- `src/cogent/__main__.py`: a runnable demo.
-- `docs/paper.tex`: the research paper.
-- `docs/index.html`: project page.
+- `src/cogent/kernel/`: Core compositional algebra
+- `src/cogent/agents/`: Agent implementations (ReAct, etc.)
+- `src/cogent/combinators/`: Agent composition operators
+- `src/cogent/providers/`: LLM provider adapters (litellm)
+- `src/cogent/runtime/`: Runtime implementations and tool registry
+- `src/cogent/structured/`: Structured output parsing
+- `examples/`: Runnable examples (minimal, ReAct, multi-agent, etc.)
+- `tests/`: Test suite
 
 ## Quickstart (uv)
 
@@ -40,43 +40,38 @@ uv pip install -e ".[dev]"
 
 ## Example Usage
 
-```python
-from cogent.steps import run_simple_agent
+See the `examples/` directory for more comprehensive examples.
 
-flow = run_simple_agent("What is a Monad?")
-if flow.valid:
-    print(flow.value)
-    for entry in flow.state.history:
-        print("-", entry)
+### Minimal Example
+
+```python
+from cogent.agents.react import ReActAgent
+from cogent.providers.litellm import LiteLLMProvider
+
+# Create agent and run
+provider = LiteLLMProvider(model="gpt-4o-mini")
+agent = ReActAgent(provider=provider)
+result = agent.run("What is a Monad?")
+
+if result.valid:
+    print(result.value)
 else:
-    print("Failure:", flow.error)
+    print("Failure:", result.error)
 ```
 
-## OpenRouter 
+## LLM Providers
 
-The default steps are deterministic. To use a live LLM call via OpenRouter:
+Cogent uses LiteLLM for model integration. Set your API key:
 
 ```bash
-export OPENROUTER_API_KEY="your-key"
-export OPENROUTER_MODEL="x-ai/grok-4.1-fast"
+export OPENAI_API_KEY="your-key"
 ```
 
-```python
-from cogent.steps import run_openrouter_agent
+Or use other providers supported by LiteLLM:
 
-flow = run_openrouter_agent("What is a Monad?")
-if flow.valid:
-    print(flow.value)
-else:
-    print("Failure:", flow.error)
+```bash
+export ANTHROPIC_API_KEY="your-key"
 ```
-
-Optional environment variables:
-
-- `OPENROUTER_BASE_URL` (default: `https://openrouter.ai/api/v1`)
-- `OPENROUTER_REFERER` (sets `HTTP-Referer`)
-- `OPENROUTER_TITLE` (sets `X-Title`)
-- `OPENROUTER_TIMEOUT_S` (default: `30`)
 
 ## Tooling
 
@@ -90,8 +85,6 @@ ruff check src tests
 pytest
 ```
 
-## Notes
+## Design Principles
 
-- The implementation follows the conceptual design in the paper, including the `AgentMonad`
-  and `AsyncAgentMonad` APIs.
-- The default example steps are deterministic and self-contained; use OpenRouter for live LLM calls.
+For a complete understanding of the architectural design and principles, read [DESIGN.md](./DESIGN.md).

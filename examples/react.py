@@ -21,49 +21,9 @@ import re
 import ast
 import argparse
 
-from litellm import completion
-
-from cogent import Env, ReActState
-from cogent.agents.react import ReActPolicy, ReActConfig
-from cogent.kernel import ModelPort, SinkPort
+from cogent.agents.react import ReactAgent
 from cogent.kernel.tool import ToolDefinition, ToolParameter, ToolUse
 from cogent.runtime.tools import ToolRegistry
-
-
-# ==================== Model Provider ====================
-
-class LiteLLMModel(ModelPort):
-    """LiteLLM-based model implementation."""
-
-    def __init__(self, model_name: str = "anthropic/claude-sonnet-4-20250514"):
-        self.model_name = model_name
-
-    async def complete(self, prompt: str) -> str:
-        """Complete a prompt using LiteLLM."""
-        response = completion(
-            model=self.model_name,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.choices[0].message.content
-
-    async def stream_complete(self, prompt: str, ctx: SinkPort) -> str:
-        """Stream complete a prompt using LiteLLM."""
-        response = completion(
-            model=self.model_name,
-            messages=[{"role": "user", "content": prompt}],
-            stream=True
-        )
-
-        full_content = ""
-        for chunk in response:
-            if chunk.choices and chunk.choices[0].delta:
-                content = chunk.choices[0].delta.content
-                if content:
-                    await ctx.send(content)
-                    full_content += content
-
-        await ctx.close()
-        return full_content
 
 
 # ==================== Tool Implementations ====================
@@ -217,17 +177,6 @@ def create_tool_registry() -> ToolRegistry:
     return registry
 
 
-# ==================== Environment ====================
-
-def make_env() -> Env:
-    """Create environment with LiteLLM model and web tools."""
-    model_name = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4-20250514")
-    return Env(
-        model=LiteLLMModel(model_name=model_name),
-        tools=create_tool_registry(),
-    )
-
-
 # ==================== Main ====================
 
 async def run_task(task: str) -> str:
@@ -239,17 +188,15 @@ async def run_task(task: str) -> str:
     Returns:
         The final answer from the agent
     """
-    # Create environment
-    env = make_env()
+    model_name = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4-20250514")
 
-    # Create policy and agent
-    config = ReActConfig(max_steps=10)
-    policy = ReActPolicy(config)
+    agent = ReactAgent(
+        model=model_name,
+        tools=create_tool_registry(),
+        max_steps=10,
+    )
 
-    # Run the agent
-    initial_state = ReActState()
-    result = await policy.run(initial_state, task).run(env)
-
+    result = await agent.run(task)
     return result.value
 
 
