@@ -49,7 +49,7 @@ async def format_output(state: ReActState, answer: str, env: Env) -> Result[ReAc
 class LiteLLMModel(ModelPort):
     """LiteLLM-based model implementation."""
 
-    def __init__(self, model_name: str = "anthropic/claude-sonnet-4-20250514"):
+    def __init__(self, model_name: str = "anthropic/claude-sonnet-4.6"):
         """Initialize LiteLLMModel."""
         self.model_name = model_name
         

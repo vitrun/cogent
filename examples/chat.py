@@ -16,7 +16,7 @@ from cogent.kernel.env import Context, InMemoryContext
 class LiteLLMModel(ModelPort):
     """LiteLLM-based model implementation for Anthropic."""
 
-    def __init__(self, model_name: str = "anthropic/claude-sonnet-4-20250514"):
+    def __init__(self, model_name: str = "anthropic/claude-sonnet-4.6"):
         """Initialize LiteLLMModel.
 
         Args:

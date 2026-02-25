@@ -1,14 +1,36 @@
-"""Combinator primitives: handoff, emit, route, concurrent."""
+"""Combinator primitives: handoff, emit, route, concurrent, repeat."""
+
+# Combinators satisfy the following algebraic laws:
+#
+# 1. Identity: agent.then(Agent.start) == agent
+#    An agent bound to identity returns the same agent
+#
+# 2. Associativity: (agent.then(f)).then(g) == agent.then(lambda x: f(x).then(g))
+#    Chaining steps is associative
+#
+# 3. Handoff is transitive: handoff("a").then(handoff("b")) == handoff("b")
+#    Multiple handoffs can be collapsed
+#
+# 4. Concurrent is commutative: concurrent([a, b], merge) == concurrent([b, a], merge)
+#    Order of agents doesn't matter for concurrent execution
+#
+# 5. Emit is idempotent: emit(x).then(emit(x)) == emit(x)
+#    Duplicate emissions are absorbed
+
 
 from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Sequence
-from typing import Any
+from typing import Any, TypeVar
 
 from cogent.kernel import Agent, Control, Result
+from cogent.kernel.env import Env
 
-from . import MultiEnv, MultiState
+from .types import MultiEnv, MultiState, merge_states
+
+S = TypeVar("S")
+V = TypeVar("V")
 
 
 def handoff(target: str) -> Agent[MultiState, Any]:
@@ -94,7 +116,7 @@ def route(selector: Callable[[MultiState], str]) -> Agent[MultiState, Any]:
 
 def concurrent(
     agents: Sequence[Agent[MultiState, Any]],
-    merge_state: Callable[[list[MultiState]], MultiState],
+    merge_state: Callable[[list[MultiState]], MultiState] = merge_states,
 ) -> Agent[MultiState, list[Result[MultiState, Any]]]:
     """Execute multiple agents concurrently.
 
@@ -157,3 +179,48 @@ def concurrent(
         )
 
     return Agent(_run)  # type: ignore[arg-type]
+
+
+def repeat(
+    agent: Agent[S, V],
+    max_steps: int,
+) -> Agent[S, V]:
+    """Repeat an agent up to max_steps times.
+
+    Executes the wrapped agent repeatedly, stopping when:
+    - Control.Halt is returned
+    - Control.Error is returned
+    - max_steps is reached
+
+    Args:
+        agent: The agent to repeat
+        max_steps: Maximum number of iterations (must be > 0)
+
+    Returns:
+        New Agent that executes the inner agent up to max_steps times
+    """
+
+    if max_steps <= 0:
+        raise ValueError("max_steps must be positive")
+
+    async def repeat_wrapper(state: S, env: Env) -> Result[S, V]:
+        """Loop that runs the agent and checks control."""
+        current_state = state
+        result: Result[S, V] | None = None
+
+        for _ in range(max_steps):
+            result = await agent.run(current_state, env)
+
+            # Stop on halt or error
+            if result.control.kind == "halt":
+                return result
+            if result.control.kind == "error":
+                return result
+
+            # Continue with next iteration, threading state forward
+            current_state = result.state
+
+        # max_steps > 0 is validated above, so result is set
+        return result  # type: ignore[return-value]
+
+    return Agent(_run=repeat_wrapper)

@@ -1,9 +1,7 @@
 """Cogent - Principled AI Agent Orchestration."""
 
 from cogent.agents import ReActConfig, ReActState
-from cogent.kernel import Agent, Control, Result, Trace, Env
-from cogent.kernel.tool import ToolResult, ToolUse
-from cogent.runtime import ToolRegistry
+from cogent.kernel import Agent, Control, Result, Trace, Env, ToolCall
 
 __all__ = [
     # Kernel
@@ -11,12 +9,8 @@ __all__ = [
     "Control",
     "Result",
     "Trace",
-    "ToolUse",
-    "ToolResult",
-    # Ports
+    "ToolCall",
     "Env",
-    # Runtime
-    "ToolRegistry",
     # Agents
     "ReActConfig",
     "ReActState",

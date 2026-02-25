@@ -22,9 +22,6 @@ import ast
 import argparse
 
 from cogent.agents.react import ReactAgent
-from cogent.kernel.tool import ToolDefinition, ToolParameter, ToolUse
-from cogent.runtime.tools import ToolRegistry
-
 
 # ==================== Tool Implementations ====================
 
@@ -124,59 +121,6 @@ def _calculate(expression: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-
-# ==================== Tool Registry ====================
-
-def create_tool_registry() -> ToolRegistry:
-    """Create tool registry with web search tools."""
-
-    registry = ToolRegistry()
-
-    # Tool definitions (parameters as dict)
-    search_def = ToolDefinition(
-        name="search",
-        description="Search the web for information",
-        parameters={
-            "query": ToolParameter(name="query", type="string", description="Search query", required=True),
-        },
-    )
-
-    get_url_def = ToolDefinition(
-        name="get_url",
-        description="Fetch content from a URL",
-        parameters={
-            "url": ToolParameter(name="url", type="string", description="URL to fetch", required=True),
-        },
-    )
-
-    calculate_def = ToolDefinition(
-        name="calculate",
-        description="Evaluate a mathematical expression",
-        parameters={
-            "expression": ToolParameter(name="expression", type="string", description="Math expression", required=True),
-        },
-    )
-
-    # Tool implementations
-    async def search_handler(env, state, call: ToolUse) -> str:
-        query = str(call.args.get("query", ""))
-        return _search(query)
-
-    async def get_url_handler(env, state, call: ToolUse) -> str:
-        url = str(call.args.get("url", ""))
-        return _get_url(url)
-
-    async def calculate_handler(env, state, call: ToolUse) -> str:
-        expr = str(call.args.get("expression", ""))
-        return _calculate(expr)
-
-    registry.register("search", search_handler, search_def)
-    registry.register("get_url", get_url_handler, get_url_def)
-    registry.register("calculate", calculate_handler, calculate_def)
-
-    return registry
-
-
 # ==================== Main ====================
 
 async def run_task(task: str) -> str:
@@ -188,7 +132,7 @@ async def run_task(task: str) -> str:
     Returns:
         The final answer from the agent
     """
-    model_name = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4-20250514")
+    model_name = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4.6")
 
     agent = ReactAgent(
         model=model_name,

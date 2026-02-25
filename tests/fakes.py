@@ -4,8 +4,9 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
-from cogent.kernel import Env
-from cogent.kernel.ports import MemoryPort, ModelPort, ToolPort
+from cogent.kernel import Env, Result, Control
+from cogent.kernel.ports import MemoryPort, ModelPort, ToolPort, SinkPort
+from cogent.kernel.tool import ToolCall
 
 
 @dataclass
@@ -18,7 +19,7 @@ class FakeModel(ModelPort):
             raise RuntimeError("No model responses available")
         return self.responses.pop(0)
 
-    async def stream_complete(self, prompt: str, ctx: Sink) -> str:
+    async def stream_complete(self, prompt: str, ctx: SinkPort) -> str:
         _ = prompt
         if not self.responses:
             raise RuntimeError("No model responses available")
@@ -35,11 +36,15 @@ class FakeModel(ModelPort):
 class FakeTools(ToolPort):
     handlers: dict[str, Any]
 
-    async def call(self, name: str, args: dict[str, Any]) -> Any:
-        handler = self.handlers.get(name)
+    async def call(self, state: Any, call: ToolCall) -> Result[Any, Any]:
+        handler = self.handlers.get(call.name)
         if handler is None:
-            raise RuntimeError(f"Tool not found: {name}")
-        return handler(args)
+            return Result(state, control=Control.Error(f"Tool not found: {call.name}"))
+        try:
+            value = handler(call.args)
+            return Result(state, value=value)
+        except Exception as e:
+            return Result(state, control=Control.Error(str(e)))
 
 
 @dataclass

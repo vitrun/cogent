@@ -29,7 +29,7 @@ from cogent.combinators.ops import handoff
 class LiteLLMModel(ModelPort):
     """LiteLLM-based model implementation."""
 
-    def __init__(self, model_name: str = "anthropic/claude-sonnet-4-20250514"):
+    def __init__(self, model_name: str = "anthropic/claude-sonnet-4.6"):
         self.model_name = model_name
 
     async def complete(self, prompt: str) -> str:
@@ -184,7 +184,7 @@ async def main():
         return
 
     # Create model
-    model = LiteLLMModel(model_name="anthropic/claude-sonnet-4-20250514")
+    model = LiteLLMModel(model_name="anthropic/claude-sonnet-4.6")
 
     # Create registry with agents
     registry = AgentRegistry({

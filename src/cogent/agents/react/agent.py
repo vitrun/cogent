@@ -4,36 +4,66 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field, replace
 
-from cogent.agents.react.state import ReActState
+from typing import TYPE_CHECKING, Any, TypeVar
+
 from cogent.combinators import repeat
-from cogent.kernel import ModelPort
+from cogent.kernel import ModelPort, ToolPort
 from cogent.kernel.env import Env
 from cogent.kernel.ports import SinkPort
 from cogent.kernel.trace import Trace
-from cogent.runtime.tools import ToolRegistry
-
-from .result import ReactResult
+from cogent.kernel.env import Context, InMemoryContext
+from cogent.kernel.trace import Evidence
 
 if TYPE_CHECKING:
     from typing import Self
 
 
+@dataclass(frozen=True)
+class ReActState:
+    """Default opinionated state that combines task information, context, and evidence for agents."""
 
-class _ToolAdapter:
-    """Adapter to make ToolRegistry compatible with ToolPort interface."""
+    context: Context = field(default_factory=InMemoryContext)
+    scratchpad: str = field(default="")
+    evidence: Evidence = field(default_factory=lambda: Evidence(action="start"))  # type: ignore
 
-    def __init__(self, registry: ToolRegistry):
-        self._registry = registry
+    def with_context(self, entry: str) -> Self:
+        new_context = self.context.append(entry)
+        return replace(self, context=new_context)
 
-    async def call(self, name: str, args: dict[str, str]) -> str:
-        """Call a tool by name with args."""
-        from cogent.kernel.tool import ToolUse
+    def with_scratchpad(self, text: str) -> Self:
+        return replace(self, scratchpad=text)
 
-        tool_use = ToolUse(id=f"tool-{id(self)}", name=name, args=args)
-        result = await self._registry.run(None, None, tool_use)
-        return result.content
+    def with_evidence(
+        self,
+        action: str,
+        input_data: Any = None,
+        output_data: Any = None,
+        info: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> Self:
+        new_evidence = self.evidence.child(
+            action,
+            info=info or {},
+        )
+
+        # Create new state with the new evidence
+        return replace(self, evidence=new_evidence)
+
+@dataclass(frozen=True)
+class ReactResult:
+    """Return type for ReactAgent - hides kernel Result.
+
+    Attributes:
+        value: The final answer from the agent.
+        steps: Number of ReAct iterations executed.
+        trace: Trace object for debugging (None if trace=False).
+    """
+
+    value: str
+    steps: int
+    trace: Trace | None = None
 
 
 class _StreamSink:
@@ -69,7 +99,7 @@ class ReactAgent:
 
     Example:
         agent = ReactAgent(
-            model="anthropic/claude-sonnet-4-20250514",
+            model="anthropic/claude-sonnet-4.6",
             tools=my_tools,
         )
         result = await agent.run("What is 2+2?")
@@ -79,7 +109,7 @@ class ReactAgent:
     def __init__(
         self,
         model: str | ModelPort,
-        tools: ToolRegistry | None = None,
+        tools: ToolPort | None = None,
         *,
         max_steps: int = 20,
         trace: bool = True,
@@ -89,7 +119,7 @@ class ReactAgent:
 
         Args:
             model: Model name string or ModelPort instance.
-            tools: Optional ToolRegistry with tool definitions and handlers.
+            tools: Optional ToolPort with tool implementations.
             max_steps: Maximum ReAct iterations (default 20).
             trace: Enable trace for debugging (default True).
             debug: Enable verbose output (default False).
@@ -109,10 +139,9 @@ class ReactAgent:
     def _build_env(self, sink: SinkPort | None = None) -> Env:
         """Build the environment."""
         trace = Trace(enabled=self._trace_enabled) if self._trace_enabled else None
-        tools = _ToolAdapter(self._tools) if self._tools else None
         return Env(
             model=self._build_model(),
-            tools=tools,
+            tools=self._tools,
             trace=trace,
             sink=sink,
         )
@@ -195,7 +224,7 @@ class _StringModelWrapper:
     """Wrapper to create model from string name.
 
     Uses environment variables to configure the model.
-    Supports OpenRouter model names like "anthropic/claude-sonnet-4-20250514".
+    Supports OpenRouter model names like "anthropic/claude-sonnet-4.6".
     """
 
     def __init__(self, model_name: str):

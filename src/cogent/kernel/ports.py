@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeVar
+
+from cogent.kernel.result import Result
+from cogent.kernel.tool import ToolCall
+
+S = TypeVar("S")
 
 
 class SinkPort(Protocol):
@@ -24,10 +29,10 @@ class ModelPort(Protocol):
     async def stream_complete(self, prompt: str, ctx: SinkPort) -> str: ...
 
 
-class ToolPort(Protocol):
+class ToolPort(Protocol[S]):
     """Tool execution port."""
 
-    async def call(self, name: str, args: dict[str, Any]) -> Any: ...
+    async def call(self, state: S, call: ToolCall) -> Result[S, Any]: ...
 
 
 class MemoryPort(Protocol):

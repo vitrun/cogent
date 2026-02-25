@@ -2,21 +2,43 @@
 
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, Protocol
 
 from pydantic import BaseModel, ValidationError
 
 from cogent.kernel.agent import Agent
 from cogent.kernel.env import Env
 from cogent.kernel.result import Control, Result
-from cogent.kernel.tool import ToolResult, ToolUse
+from cogent.kernel.tool import ToolCall
 
-from .state import ReActStateProtocol
 
 S = TypeVar("S")
 T = TypeVar("T")
+
+
+class ReActStateProtocol(Protocol[S]):
+    """Protocol for states that can be used with ReAct."""
+
+    context: Context
+    scratchpad: str
+    evidence: Evidence
+
+    def with_context(self, entry: str) -> S:
+        ...
+
+    def with_scratchpad(self, text: str) -> S:
+        ...
+
+    def with_evidence(self, action: str, **kwargs) -> S:
+        ...
+
+    def with_formatted_anthropic_messages(self, messages: list[dict]) -> S:
+        ...
+
+    def with_formatted_messages(self, messages: list[dict]) -> S:
+        ...
+
 
 
 class ReActOutput(BaseModel):
@@ -118,7 +140,7 @@ class ReActPolicy(Generic[S]):
         state: S,
         parsed: ReActOutput,
         env: Env,
-    ) -> Result[S, ToolUse | str]:
+    ) -> Result[S, ToolCall | str]:
         """Decide step that interprets parsed model output."""
         next_state = state
         thought_line = f"Thought: {parsed.thought}"
@@ -141,8 +163,7 @@ class ReActPolicy(Generic[S]):
             return Result(next_state, value=parsed.final, control=Control.Halt())
 
         if parsed.action:
-            tool_call = ToolUse(
-                id=f"tool-{int(time.time() * 1000)}",
+            tool_call = ToolCall(
                 name=parsed.action,
                 args=action_input,
             )
@@ -150,25 +171,21 @@ class ReActPolicy(Generic[S]):
 
         return Result(next_state, control=Control.Error("Missing action or final"))
 
-    async def act(self, state: S, call: ToolUse | str, env: Env) -> Result[S, ToolResult]:
+    async def act(self, state: S, call: ToolCall | str, env: Env) -> Result[S, Any]:
         """Act step that executes a tool call."""
-        if not isinstance(call, ToolUse):
+        if not isinstance(call, ToolCall):
             return Result(state, control=Control.Error("No tool call to execute"))
+        if not env.tools:
+            return Result(state, control=Control.Error("No tools available"))
         next_state = state.with_evidence("tool_call", info={"name": call.name, "args": call.args})
-        try:
-            content = await env.tools.call(call.name, call.args)
-            result = ToolResult.success(call.id, str(content))
-            return Result(next_state, value=result, control=Control.Continue())
-        except Exception as e:
-            result = ToolResult.failure(call.id, str(e))
-            return Result(next_state, control=Control.Error(f"Tool execution failed: {e}"))
+        return await env.tools.call(next_state, call)
 
-    async def observe(self, state: S, result: ToolResult, env: Env) -> Result[S, str]:
+    async def observe(self, state: S, value: Any, env: Env) -> Result[S, str]:
         """Observe step that processes tool execution results."""
-        observation = f"Observation: {result.content}"
+        observation = f"Observation: {value}"
         next_state = state.with_context(observation)
         next_state = self._append_scratchpad(next_state, observation)
-        next_state = next_state.with_evidence("observation", info={"tool_result_id": result.id})
+        next_state = next_state.with_evidence("observation")
         return Result(next_state, value=observation, control=Control.Continue())
 
     def _append_scratchpad(self, state: S, line: str) -> S:
