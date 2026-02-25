@@ -1,36 +1,37 @@
 # Cogent
 
+**Build production-ready AI agents without rewriting your stack.**
+
+Composable. Deterministic. Inspectable.
+
 ![Python 3.12+](https://img.shields.io/badge/python-3.12+-green.svg)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow.svg)](https://opensource.org/license/apache-2-0)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow.svg)](https://opensource.org/license/apache-2.0)
 
-Cogent is a compositional agent kernel with product-level ergonomics. It provides a principled architecture for AI agent orchestration that treats workflows as composable computations in a shared context.
 
-This repository provides a Python implementation, organized into strict architectural layers. For detailed design principles, see [DESIGN.md](./DESIGN.md).
+## The Problem
 
-## Core Architecture
+Most agent frameworks are:
 
-Cogent is divided into layers with strict dependency boundaries:
+- Easy to prototype, hard to maintain  
+- Powerful, but structurally chaotic  
+- Difficult to debug  
+- Opaque in production  
 
-- **kernel**: Minimal compositional algebra (most stable)
-- **combinators**: Higher-order agent composition
-- **agents**: Product-facing strategies (e.g., ReActAgent)
-- **providers**: Model adapters (litellm integration)
-- **runtime**: Default implementations
-- **structured**: Typed output extension
-- **model**: Model blocks
+As systems grow, orchestration becomes fragile.
 
-## Project Layout
+## What Cogent Does Differently
 
-- `src/cogent/kernel/`: Core compositional algebra
-- `src/cogent/agents/`: Agent implementations (ReAct, etc.)
-- `src/cogent/combinators/`: Agent composition operators
-- `src/cogent/providers/`: LLM provider adapters (litellm)
-- `src/cogent/runtime/`: Runtime implementations and tool registry
-- `src/cogent/structured/`: Structured output parsing
-- `examples/`: Runnable examples (minimal, ReAct, multi-agent, etc.)
-- `tests/`: Test suite
+Cogent gives you:
 
-## Quickstart (uv)
+- ✅ Structured agent orchestration  
+- ✅ Deterministic execution model  
+- ✅ First-class trace & audit  
+- ✅ Composable multi-agent workflows  
+- ✅ Built-in LiteLLM support (100+ models)
+
+You can start simple — and scale without rewriting everything.
+
+## Quickstart
 
 ```bash
 uv venv
@@ -38,39 +39,113 @@ source .venv/bin/activate
 uv pip install -e ".[dev]"
 ```
 
-## Example Usage
+## Quick Examples
 
-See the `examples/` directory for more comprehensive examples.
-
-### Minimal Example
-
+### 1. Simple ReAct Agent with Tools
 ```python
-from cogent.agents.react import ReActAgent
-from cogent.providers.litellm import LiteLLMProvider
+from cogent.agents.react import ReactAgent
+from cogent.kernel import ToolPort, ToolCall, Result
 
-# Create agent and run
-provider = LiteLLMProvider(model="gpt-4o-mini")
-agent = ReActAgent(provider=provider)
-result = agent.run("What is a Monad?")
+class CalculatorTools(ToolPort):
+    async def call(self, state, call: ToolCall) -> Result:
+        if call.name == "add":
+            return Result(state, value=str(sum(call.args.values())))
+        return Result(state, value=f"Unknown tool: {call.name}")
 
-if result.valid:
-    print(result.value)
-else:
-    print("Failure:", result.error)
+agent = ReactAgent(model="anthropic/claude-sonnet-4.6", tools=CalculatorTools())
+result = await agent.run("What's 2 + 2?")
+print(result.value)
+```
+
+### 2. Streaming Responses
+```python
+agent = ReactAgent(model="anthropic/claude-sonnet-4.6")
+async for chunk in agent.stream("Explain quantum computing simply"):
+    print(chunk, end="")
+```
+
+### 3. Multi-Agent Composition
+Cogent supports:
+- Agent routing
+- Handoff
+- Parallel execution
+- Concurrent orchestration
+
+See [examples/multi_agent.py](./examples/multi_agent.py) for a complete multi-agent workflow with handoff, routing, and concurrent execution.
+
+### 4. Structured Outputs
+```python
+from dataclasses import dataclass
+from cogent import Agent
+from cogent.structured import CallableSchema, PydanticSchema
+
+@dataclass
+class UserProfile:
+    name: str
+    email: str
+
+def parse_profile(data: dict) -> UserProfile:
+    return UserProfile(name=data["name"], email=data["email"])
+
+agent = Agent.start('{"name": "Alice", "email": "alice@example.com"}')
+agent = agent.cast(CallableSchema(parse_profile))
+result = await agent.run("state", env)
+assert isinstance(result.value, UserProfile)
+```
+
+### 5. Trace & Evidence (Debugging & Audit)
+```python
+from cogent.agents.react import ReactAgent, ReActState
+
+agent = ReactAgent(model="anthropic/claude-sonnet-4.6", trace=True)
+result = await agent.run("Analyze this market data")
+
+# Inspect the trace
+if result.trace:
+    for event in result.trace._events:
+        print(f"{event.action}: {event.info}")
+```
+
+### 6. Compositional Agent Building
+```python
+from cogent import Agent
+from cogent.kernel import Result, Control
+
+async def step1(state, value, env):
+    return Result(state, value=value + " processed", control=Control.Continue())
+
+async def step2(state, value, env):
+    return Result(state, value=value + " finalized", control=Control.Continue())
+
+workflow = Agent.start("initial").then(step1).then(step2)
+result = await workflow.run("state", env)
+print(result.value)  # "initial processed finalized"
 ```
 
 ## LLM Providers
 
-Cogent uses LiteLLM for model integration. Set your API key:
+Cogent has **built-in LiteLLM integration** supporting 100+ models (OpenAI, Anthropic, OpenRouter, etc.). Set any supported API key:
 
 ```bash
-export OPENAI_API_KEY="your-key"
+export OPENROUTER_API_KEY="your-key"  # OpenRouter
+export ANTHROPIC_API_KEY="your-key"   # Anthropic
+export OPENAI_API_KEY="your-key"      # OpenAI
 ```
 
-Or use other providers supported by LiteLLM:
+### Extensible Provider System
+Cogent is designed to be extensible. Implement your own provider by subclassing `FormatterBase`:
 
-```bash
-export ANTHROPIC_API_KEY="your-key"
+```python
+from cogent.providers.base import FormatterBase
+from cogent.model import Message
+
+class CustomProvider(FormatterBase):
+    support_tools_api = True
+    support_vision = False
+    
+    async def format(self, messages: list[Message]) -> list[dict]:
+        # Convert Cogent messages to your provider's format
+        return [{"role": msg.role, "content": msg.content} for msg in messages]
 ```
 
 ## Tooling
@@ -88,3 +163,4 @@ pytest
 ## Design Principles
 
 For a complete understanding of the architectural design and principles, read [DESIGN.md](./DESIGN.md).
+

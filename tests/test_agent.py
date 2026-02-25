@@ -83,6 +83,7 @@ def test_control_retry_reruns_current_step() -> None:
     Runtime does NOT implement retry loops.
     Steps that want retry must handle it internally.
     """
+
     async def run_flow():
         attempt_count = 0
 
@@ -126,10 +127,11 @@ def test_control_retry_dirty_preserves_state() -> None:
     In the new design, retry is strictly step-level.
     Runtime does NOT implement retry loops.
     """
+
     async def run_flow():
         attempt_count = 0
 
-        async def retrying_step(s: ReActState, v: str, env) -> Result[ReActState, str]:
+        async def retrying_step(s: str, v: str, env) -> Result[str, str]:
             _ = env
             nonlocal attempt_count
             attempt_count += 1
@@ -149,4 +151,3 @@ def test_control_retry_dirty_preserves_state() -> None:
     assert attempt_count == 1
     # State evolved once
     assert result.state == "initial-state-attempt-1"
-

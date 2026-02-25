@@ -14,8 +14,7 @@ from cogent.kernel.trace import Trace
 class TrimPolicy(Protocol):
     """Policy for trimming context entries."""
 
-    def __call__(self, entries: list[Any]) -> list[Any]:
-        ...
+    def __call__(self, entries: list[Any]) -> list[Any]: ...
 
 
 class Context(ABC):

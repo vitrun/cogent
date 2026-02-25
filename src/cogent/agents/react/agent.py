@@ -5,16 +5,13 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field, replace
-
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any
 
 from cogent.combinators import repeat
 from cogent.kernel import ModelPort, ToolPort
-from cogent.kernel.env import Env
+from cogent.kernel.env import Context, Env, InMemoryContext
 from cogent.kernel.ports import SinkPort
-from cogent.kernel.trace import Trace
-from cogent.kernel.env import Context, InMemoryContext
-from cogent.kernel.trace import Evidence
+from cogent.kernel.trace import Evidence, Trace
 
 if TYPE_CHECKING:
     from typing import Self
@@ -22,7 +19,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class ReActState:
-    """Default opinionated state that combines task information, context, and evidence for agents."""
+    """Default opinionated state combining task info, context, and evidence for agents."""
 
     context: Context = field(default_factory=InMemoryContext)
     scratchpad: str = field(default="")
@@ -50,6 +47,7 @@ class ReActState:
 
         # Create new state with the new evidence
         return replace(self, evidence=new_evidence)
+
 
 @dataclass(frozen=True)
 class ReactResult:

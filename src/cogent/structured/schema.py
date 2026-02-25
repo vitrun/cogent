@@ -9,7 +9,7 @@ from typing import Any, Protocol, TypeVar
 T = TypeVar("T")
 
 
-class OutputSchema(Protocol[T]):
+class OutputSchema(Protocol[T]):  # type: ignore[reportInvalidTypeVarUse]
     """Protocol for output value schemas.
 
     Schemas validate and transform raw values into structured types.
@@ -129,4 +129,5 @@ def try_import_pydantic() -> bool:
         True if pydantic can be imported, False otherwise
     """
     import importlib.util
+
     return importlib.util.find_spec("pydantic") is not None

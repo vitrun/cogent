@@ -4,7 +4,7 @@ from typing import cast
 from fakes import FakeTools, make_fake_env
 
 from cogent.agents import ReActConfig, ReActState
-from cogent.agents.react.policy import ReActPolicy, ReActOutput, structured
+from cogent.agents.react.policy import ReActOutput, ReActPolicy, structured
 from cogent.combinators import repeat
 
 

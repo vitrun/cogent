@@ -1,0 +1,31 @@
+# Pre-commit hooks for Cogent
+# Run `pre-commit install` to set up hooks
+
+default_install_hook_types: [pre-commit]
+default_stages: [pre-commit]
+
+repos:
+  # Ruff for formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.0
+    hooks:
+      - id: ruff-format
+        exclude: ^examples/
+
+  # Ruff for linting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+        exclude: ^examples/
+
+  # Pyright for type checking
+  - repo: local
+    hooks:
+      - id: pyright
+        name: pyright
+        entry: uv run pyright src tests
+        language: system
+        types: [python]
+        pass_filenames: false

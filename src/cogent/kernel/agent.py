@@ -69,6 +69,7 @@ class Agent(Generic[S, V]):
         Note: This method does NOT implement retry semantics.
         Retry is strictly step-level logic handled within each step function.
         """
+
         class SimpleSink:
             def __init__(self, callback: Callable[[str], None]):
                 self.callback = callback
@@ -144,6 +145,7 @@ class Agent(Generic[S, V]):
         Each step is fully responsible for handling its own retry_clean / retry_dirty logic.
         Runtime only interprets Control and records trace.
         """
+
         async def new_run(state: S, env: Env) -> Result[S, R]:
             current_flow = await self.run(state, env)
             if current_flow.control.kind == "error":
@@ -205,6 +207,7 @@ class Agent(Generic[S, V]):
 
     def recover(self, recovery_func: Callable[[Any], V]) -> Agent[S, V]:
         """Recover from error with recovery function."""
+
         async def new_run(state: S, env: Env) -> Result[S, V]:
             current_flow = await self.run(state, env)
             if current_flow.control.kind != "error":
@@ -242,6 +245,7 @@ class Agent(Generic[S, V]):
 
         The returned Agent passes through incoming state unchanged.
         """
+
         async def run_func(state: S, _: Env) -> Result[S, V]:
             return Result(state=state, value=value, control=Control.Continue())
 

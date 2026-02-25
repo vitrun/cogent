@@ -5,7 +5,9 @@ from dataclasses import dataclass
 import pytest
 
 from cogent.kernel.env import Context, Env, InMemoryContext
-from cogent.kernel.ports import ModelPort, ToolPort
+from cogent.kernel.ports import ModelPort, SinkPort, ToolPort
+from cogent.kernel.result import Result
+from cogent.kernel.tool import ToolCall
 
 
 @dataclass
@@ -13,23 +15,24 @@ class MockModelPort(ModelPort):
     async def complete(self, prompt: str) -> str:
         return "mock response"
 
+    async def stream_complete(self, prompt: str, ctx: SinkPort) -> str:
+        return "mock response"
+
 
 @dataclass
-class MockToolPort(ToolPort):
-    async def call(self, name: str, args: dict[str, any]) -> any:
-        return "mock result"
+class MockToolPort(ToolPort[object]):
+    async def call(self, state: object, call: ToolCall) -> Result[object, str]:
+        return Result(state, value="mock result")
 
 
 # Create a mock Env object
-mock_env = Env(
-    model=MockModelPort(),
-    tools=MockToolPort()
-)
+mock_env = Env(model=MockModelPort(), tools=MockToolPort())
 
 
 @dataclass
 class StateWithContext:
     """State class containing context."""
+
     counter: int
     context: Context
 
@@ -102,6 +105,7 @@ async def test_context_determinism():
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(test_context_basic_operations())
     asyncio.run(test_context_immutability())
     asyncio.run(test_context_determinism())

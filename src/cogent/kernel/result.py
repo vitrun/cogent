@@ -23,6 +23,7 @@ class Control:
       - Use case: Logical errors or reasoning corrections (analogous to human learning adjustments)
     - error: Stop execution with an error
     """
+
     kind: Literal["continue", "halt", "retry_clean", "retry_dirty", "error"]
     reason: Any | None = None
 

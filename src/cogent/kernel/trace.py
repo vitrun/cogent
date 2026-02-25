@@ -20,6 +20,7 @@ class Evidence:
     Tree reconstruction happens only during visualization via as_tree().
     Supports hierarchical parent-child relationships via _children.
     """
+
     action: str = ""
     id: int = field(default=0)
     parent_id: int | None = field(default=None)
@@ -33,8 +34,8 @@ class Evidence:
         # If action looks like an int (e.g., Evidence(0)), swap with id
         if isinstance(self.action, int):
             # Swap action and id
-            object.__setattr__(self, 'id', self.action)
-            object.__setattr__(self, 'action', "")
+            object.__setattr__(self, "id", self.action)
+            object.__setattr__(self, "action", "")
 
     @property
     def step_id(self) -> int:
@@ -83,7 +84,8 @@ class Evidence:
             results.extend(child.find_all(**kwargs))
         if kwargs:
             results = [
-                e for e in results
+                e
+                for e in results
                 if all(e.info.get(k) == v or getattr(e, k, None) == v for k, v in kwargs.items())
             ]
         return results
@@ -101,6 +103,7 @@ class Trace:
     - No recursive tree construction during execution
     - No UUID allocation
     """
+
     def __init__(self, enabled: bool = True) -> None:
         self.enabled = enabled
         self._events: list[Evidence] = []

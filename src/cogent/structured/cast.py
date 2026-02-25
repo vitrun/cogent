@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from cogent.kernel.env import Env
 from cogent.kernel.result import Control, Result
@@ -12,11 +12,12 @@ from cogent.structured.parser import parse_json_if_needed
 from cogent.structured.schema import OutputSchema
 
 S = TypeVar("S")
-V = TypeVar("V")
 T = TypeVar("T")
 
 
-def make_cast_step(schema: OutputSchema[T], max_retries: int = 3) -> Callable[[S, V, Env], Awaitable[Result[S, T]]]:
+def make_cast_step(
+    schema: OutputSchema[T], max_retries: int = 3
+) -> Callable[[S, Any, Env], Awaitable[Result[S, T]]]:
     """Create a type casting step for the agent.
 
     This step validates and transforms the value using the provided schema.
@@ -29,10 +30,11 @@ def make_cast_step(schema: OutputSchema[T], max_retries: int = 3) -> Callable[[S
     Returns:
         A step function that validates and transforms the value
     """
-    async def step(state: S, value: V, env: Env) -> Result[S, T]:
+
+    async def step(state: S, value: Any, env: Env) -> Result[S, T]:
         last_error: Exception | None = None
 
-        for attempt in range(max_retries):
+        for _ in range(max_retries):
             try:
                 # Parse JSON if the value is a string
                 parsed = parse_json_if_needed(value)

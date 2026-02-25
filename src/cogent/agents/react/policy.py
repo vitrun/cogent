@@ -3,46 +3,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Generic, TypeVar, Protocol
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from cogent.agents.react.agent import ReActState
 from cogent.kernel.agent import Agent
 from cogent.kernel.env import Env
 from cogent.kernel.result import Control, Result
 from cogent.kernel.tool import ToolCall
 
-
-S = TypeVar("S")
+S = TypeVar("S", bound=ReActState)
 T = TypeVar("T")
-
-
-class ReActStateProtocol(Protocol[S]):
-    """Protocol for states that can be used with ReAct."""
-
-    context: Context
-    scratchpad: str
-    evidence: Evidence
-
-    def with_context(self, entry: str) -> S:
-        ...
-
-    def with_scratchpad(self, text: str) -> S:
-        ...
-
-    def with_evidence(self, action: str, **kwargs) -> S:
-        ...
-
-    def with_formatted_anthropic_messages(self, messages: list[dict]) -> S:
-        ...
-
-    def with_formatted_messages(self, messages: list[dict]) -> S:
-        ...
-
 
 
 class ReActOutput(BaseModel):
     """Default ReAct output schema - can be overridden."""
+
     thought: str
     action: str | None = None
     action_input: dict[str, Any] | None = None
@@ -52,10 +29,11 @@ class ReActOutput(BaseModel):
 @dataclass(frozen=True)
 class ReActConfig:
     """Configuration for ReAct policy."""
+
     pass
 
 
-def _append_scratchpad(state: ReActStateProtocol[S], line: str) -> S:
+def _append_scratchpad(state: S, line: str) -> S:
     """Helper function to append a line to the scratchpad."""
     if state.scratchpad:
         return state.with_scratchpad(f"{state.scratchpad}\n{line}")
@@ -77,8 +55,8 @@ def _clean_json_output(text: str) -> str:
 
 
 def structured(
-    schema: type[T] = ReActOutput,
-) -> Any:
+    schema: type[BaseModel] = ReActOutput,
+) -> Any:  # type: ignore[returnType]
     """Create a Step that parses and validates LLM output against a schema.
 
     Args:
@@ -87,11 +65,12 @@ def structured(
     Returns:
         A Step function that parses raw string output
     """
+
     async def parse_step(
         state: S,
         model_output: str,
         env: Env,
-    ) -> Result[S, T]:
+    ) -> Result[S, Any]:
         cleaned = _clean_json_output(model_output)
         try:
             parsed = schema.model_validate_json(cleaned)

@@ -33,7 +33,9 @@ def test_file_provenance():
     evidence = Evidence("root")
 
     # Create file with author - using immutable design
-    evidence_with_file = evidence.child("file.write", info={"author": "market_analyst", "timestamp": "now"})
+    evidence_with_file = evidence.child(
+        "file.write", info={"author": "market_analyst", "timestamp": "now"}
+    )
 
     # Query who created the file
     creators = list(evidence_with_file.find_all(action="file.write"))
@@ -81,20 +83,20 @@ def test_action_chaining():
     # Verify chain exists
     # Original react has no children (immutable)
     assert len(react.children) == 0
-    
+
     # react_with_think should have one child (reason)
     assert len(react_with_think.children) == 1
     assert react_with_think.children[0].action == "reason"
-    
+
     # react_with_search should have two children (reason and tool.search)
     assert len(react_with_search.children) == 2
     assert "reason" in [child.action for child in react_with_search.children]
     assert "tool.search" in [child.action for child in react_with_search.children]
-    
+
     # react_with_observe should have three children
     assert len(react_with_observe.children) == 3
     assert "observe" in [child.action for child in react_with_observe.children]
-    
+
     # react_with_act should have four children
     assert len(react_with_act.children) == 4
     assert "act" in [child.action for child in react_with_act.children]
@@ -106,9 +108,9 @@ def test_contextual_state():
     class TestState:
         def __init__(self, task=""):
             self.task = task
-            self.evidence = None
+            self.evidence: Evidence | None = None
             self.history = []
-        
+
         def model_copy(self, *, update=None, deep=False):
             """Simple copy implementation for testing."""
             new_state = TestState(task=self.task)
@@ -243,14 +245,14 @@ def test_workflow_integration():
 
     # Verify the root evidence action remains "workflow_start"
     assert final_evidence.action == "start"
-    
+
     # Verify we have 3 child evidences (market_api, ml_model.apply, file.write)
     assert len(final_evidence.children) == 3
-    
+
     # Verify the final step evidence is in the children
     file_write_evidences = [e for e in final_evidence.children if e.action == "file.write"]
     assert len(file_write_evidences) == 1
-    
+
     # Check the info structure in the file.write evidence
     file_write_evidence = file_write_evidences[0]
     assert "author" in file_write_evidence.info

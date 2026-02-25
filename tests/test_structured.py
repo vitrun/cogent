@@ -51,7 +51,7 @@ def test_parse_json_if_needed_with_invalid_json() -> None:
     """Test invalid JSON raises CastError."""
     try:
         parse_json_if_needed('{"name": "test", invalid}')
-        assert False, "Expected CastError"
+        raise AssertionError("Expected CastError")
     except CastError as e:
         assert "Invalid JSON" in str(e)
         assert e.raw_value == '{"name": "test", invalid}'
@@ -74,7 +74,7 @@ def test_callable_schema_validate_failure() -> None:
 
     try:
         schema.validate(data)
-        assert False, "Expected ValueError"
+        raise AssertionError("Expected ValueError")
     except ValueError as e:
         assert "email" in str(e)
 
@@ -94,7 +94,7 @@ def test_dict_schema_validate_missing_field() -> None:
 
     try:
         schema.validate(data)
-        assert False, "Expected ValueError"
+        raise AssertionError("Expected ValueError")
     except ValueError as e:
         assert "age" in str(e)
 
@@ -106,7 +106,7 @@ def test_dict_schema_validate_wrong_type() -> None:
 
     try:
         schema.validate(data)
-        assert False, "Expected ValueError"
+        raise AssertionError("Expected ValueError")
     except ValueError as e:
         assert "int" in str(e)
 
@@ -121,6 +121,7 @@ def test_dict_schema_no_required_fields() -> None:
 
 def test_cast_step_with_json_string() -> None:
     """Test cast step with JSON string input."""
+
     async def run_flow():
         schema = CallableSchema(parse_user_profile)
         step = make_cast_step(schema)
@@ -128,7 +129,7 @@ def test_cast_step_with_json_string() -> None:
         state = "initial"
         value = '{"name": "Alice", "email": "alice@example.com"}'
 
-        result = await step(state, value, None)
+        result = await step(state, value, make_fake_env())
         return result
 
     result = asyncio.run(run_flow())
@@ -139,6 +140,7 @@ def test_cast_step_with_json_string() -> None:
 
 def test_cast_step_with_dict() -> None:
     """Test cast step with dict input."""
+
     async def run_flow():
         schema = CallableSchema(parse_user_profile)
         step = make_cast_step(schema)
@@ -146,7 +148,7 @@ def test_cast_step_with_dict() -> None:
         state = "initial"
         value = {"name": "Bob", "email": "bob@example.com"}
 
-        result = await step(state, value, None)
+        result = await step(state, value, make_fake_env())
         return result
 
     result = asyncio.run(run_flow())
@@ -157,6 +159,7 @@ def test_cast_step_with_dict() -> None:
 
 def test_cast_step_with_invalid_json() -> None:
     """Test cast step with invalid JSON triggers retry_dirty."""
+
     async def run_flow():
         schema = CallableSchema(parse_user_profile)
         step = make_cast_step(schema)
@@ -164,7 +167,7 @@ def test_cast_step_with_invalid_json() -> None:
         state = "initial"
         value = "not valid json"
 
-        result = await step(state, value, None)
+        result = await step(state, value, make_fake_env())
         return result
 
     result = asyncio.run(run_flow())
@@ -174,6 +177,7 @@ def test_cast_step_with_invalid_json() -> None:
 
 def test_cast_step_with_validation_error() -> None:
     """Test cast step with validation error triggers retry_dirty."""
+
     async def run_flow():
         schema = CallableSchema(parse_user_profile)
         step = make_cast_step(schema)
@@ -181,7 +185,7 @@ def test_cast_step_with_validation_error() -> None:
         state = "initial"
         value = {"name": "Charlie"}  # Missing email
 
-        result = await step(state, value, None)
+        result = await step(state, value, make_fake_env())
         return result
 
     result = asyncio.run(run_flow())
@@ -191,6 +195,7 @@ def test_cast_step_with_validation_error() -> None:
 
 def test_agent_cast_with_json_string() -> None:
     """Test Agent.cast with JSON string."""
+
     async def run_flow():
         schema = CallableSchema(parse_user_profile)
         flow = Agent.start('{"name": "Dave", "email": "dave@example.com"}')
@@ -205,6 +210,7 @@ def test_agent_cast_with_json_string() -> None:
 
 def test_agent_cast_with_dict() -> None:
     """Test Agent.cast with dict."""
+
     async def run_flow():
         schema = CallableSchema(parse_user_profile)
         flow = Agent.start({"name": "Eve", "email": "eve@example.com"})
@@ -219,6 +225,7 @@ def test_agent_cast_with_dict() -> None:
 
 def test_agent_cast_chain_multiple() -> None:
     """Test multiple chained casts."""
+
     async def run_flow():
         def double(x: int) -> int:
             return x * 2
@@ -235,11 +242,15 @@ def test_agent_cast_chain_multiple() -> None:
 
 def test_agent_cast_insert_after_step() -> None:
     """Test cast can be inserted after a tool step."""
-    async def run_flow():
 
+    async def run_flow():
         async def tool_step(s, v, env):
             _ = (s, env)
-            return Result(s, value='{"name": "Frank", "email": "frank@example.com"}', control=Control.Continue())
+            return Result(
+                s,
+                value='{"name": "Frank", "email": "frank@example.com"}',
+                control=Control.Continue(),
+            )
 
         schema = CallableSchema(parse_user_profile)
         flow = Agent.start("initial")

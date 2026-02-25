@@ -14,7 +14,7 @@ from cogent.providers.base import FormatterBase
 
 class LiteLLMFormatter(FormatterBase):
     """LiteLLM formatter for chat scenarios.
-    
+
     This formatter handles the specific requirements of the LiteLLM API,
     which uses OpenAI-compatible format as the standard.
     """
@@ -38,11 +38,11 @@ class LiteLLMFormatter(FormatterBase):
         messages: list[Message],
     ) -> list[dict[str, Any]]:
         """Format messages into LiteLLM API format.
-        
+
         Args:
             messages (List[Message]):
                 The list of message objects to format.
-        
+
         Returns:
             List[Dict[str, Any]]:
                 The formatted messages as a list of dictionaries.
@@ -57,41 +57,51 @@ class LiteLLMFormatter(FormatterBase):
 
             for block in msg.get_content_blocks():
                 if isinstance(block, TextBlock):
-                    content_blocks.append({
-                        "type": "text",
-                        "text": block.text,
-                    })
+                    content_blocks.append(
+                        {
+                            "type": "text",
+                            "text": block.text,
+                        }
+                    )
 
                 elif isinstance(block, ImageBlock):
-                    content_blocks.append({
-                        "type": "image_url",
-                        "image_url": block.source,
-                    })
+                    content_blocks.append(
+                        {
+                            "type": "image_url",
+                            "image_url": block.source,
+                        }
+                    )
 
                 elif isinstance(block, ToolUseBlock):
                     # LiteLLM uses OpenAI-compatible function calling
-                    function_calls.append({
-                        "id": block.id,
-                        "name": block.name,
-                        "arguments": block.input,
-                    })
+                    function_calls.append(
+                        {
+                            "id": block.id,
+                            "name": block.name,
+                            "arguments": block.input,
+                        }
+                    )
 
                 elif isinstance(block, ToolResultBlock):
                     # LiteLLM uses OpenAI-compatible tool results
-                    tool_results.append({
-                        "tool_call_id": block.tool_use_id,
-                        "role": "tool",
-                        "name": "",  # OpenAI requires a name field
-                        "content": block.content,
-                    })
+                    tool_results.append(
+                        {
+                            "tool_call_id": block.tool_use_id,
+                            "role": "tool",
+                            "name": "",  # OpenAI requires a name field
+                            "content": block.content,
+                        }
+                    )
 
             # Handle content blocks
-            msg_litellm = {
+            msg_litellm: dict[str, object] = {
                 "role": msg.role,
             }
 
             if content_blocks:
-                msg_litellm["content"] = content_blocks if len(content_blocks) > 1 else content_blocks[0]
+                msg_litellm["content"] = (
+                    content_blocks if len(content_blocks) > 1 else content_blocks[0]
+                )
 
             if function_calls:
                 # For LiteLLM, function calls use function_call field

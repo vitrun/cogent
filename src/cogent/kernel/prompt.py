@@ -88,14 +88,10 @@ class PromptTemplate:
         extra = provided - declared
 
         if missing:
-            raise ValueError(
-                f"Missing required variables for template '{self.name}': {missing}"
-            )
+            raise ValueError(f"Missing required variables for template '{self.name}': {missing}")
 
         if extra:
-            raise ValueError(
-                f"Extra variables provided for template '{self.name}': {extra}"
-            )
+            raise ValueError(f"Extra variables provided for template '{self.name}': {extra}")
 
         rendered_text = self.content.format(**values)
         text_hash = hashlib.sha256(rendered_text.encode()).hexdigest()
@@ -131,8 +127,7 @@ class PromptRegistry:
         key = (template.name, template.version)
         if key in self._templates:
             raise ValueError(
-                f"Template '{template.name}' version '{template.version}' "
-                f"is already registered"
+                f"Template '{template.name}' version '{template.version}' is already registered"
             )
         self._templates[key] = template
 

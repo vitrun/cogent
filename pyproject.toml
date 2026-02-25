@@ -43,7 +43,7 @@ where = ["src"]
 [tool.ruff]
 line-length = 100
 indent-width = 4
-target-version = "py313"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]

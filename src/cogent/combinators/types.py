@@ -19,6 +19,7 @@ class MultiState:
         shared: Tuple of shared messages between agents.
         locals: Mapping of agent names to their local state.
     """
+
     current: str
     shared: tuple[Any, ...] = field(default_factory=tuple)
     locals: Mapping[str, Any] = field(default_factory=dict)
@@ -57,6 +58,7 @@ class MultiEnv(Env):
     Note: State flows through Result, not Env. Each agent receives
     state explicitly via Agent.run(state, env).
     """
+
     registry: AgentRegistry = field(default_factory=AgentRegistry)
 
 

@@ -17,7 +17,6 @@
 # 5. Emit is idempotent: emit(x).then(emit(x)) == emit(x)
 #    Duplicate emissions are absorbed
 
-
 from __future__ import annotations
 
 import asyncio
@@ -48,6 +47,7 @@ def handoff(target: str) -> Agent[MultiState, Any]:
     Returns:
         Agent[MultiState, Any]: A new agent that performs the handoff.
     """
+
     async def _run(state: MultiState, env: MultiEnv) -> Result[MultiState, Any]:
         agent = env.registry.get(target)
 
@@ -82,6 +82,7 @@ def emit(msg: Any) -> Agent[MultiState, None]:
     Returns:
         Agent[MultiState, None]: A new agent that emits the message.
     """
+
     async def _run(state: MultiState, env: MultiEnv) -> Result[MultiState, None]:
         new_state = MultiState(
             current=state.current,
@@ -107,6 +108,7 @@ def route(selector: Callable[[MultiState], str]) -> Agent[MultiState, Any]:
     Returns:
         Agent[MultiState, Any]: A new agent that routes to the selected target.
     """
+
     async def _run(state: MultiState, env: MultiEnv) -> Result[MultiState, Any]:
         target = selector(state)
         return await handoff(target).run(state, env)
@@ -143,8 +145,11 @@ def concurrent(
             Returns merged state and raw list of branch Results.
             Developers must explicitly write a step to interpret branch Results.
     """
-    async def _run(state: MultiState, env: MultiEnv) -> Result[MultiState, list[Result[MultiState, Any]]]:
-        trace = env.trace if hasattr(env, 'trace') else None
+
+    async def _run(
+        state: MultiState, env: MultiEnv
+    ) -> Result[MultiState, list[Result[MultiState, Any]]]:
+        trace = env.trace if hasattr(env, "trace") else None
 
         # Record parallel_begin
         parallel_id = -1

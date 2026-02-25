@@ -1,7 +1,9 @@
 """Pure semantic tool abstractions."""
 
 from __future__ import annotations
+
 from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -11,5 +13,6 @@ class ToolCall(BaseModel):
 
     Pure data. No execution semantics.
     """
+
     name: str
     args: dict[str, Any]

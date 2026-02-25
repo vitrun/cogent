@@ -1,23 +1,13 @@
-# rule.md
-
 # 0. Goal
 
-cogent is a compositional agent kernel with product-level ergonomics.
-
-It is:
-
-- A minimal algebra for state transformation
-- A constrained runtime for agent execution
-- A product-facing SDK for practical usage
+Cogent is a compositional agent kernel with product-level ergonomics. It is a minimal algebra for state transformation inspired by [Monadic Context Engineering](https://arxiv.org/pdf/2512.22431).
 
 The system must balance:
-
 - Mathematical integrity (kernel)
 - Architectural boundary discipline
 - Practical usability
 
 No feature may sacrifice architectural clarity for convenience.
-
 
 # 1. Architectural Layers (Strict Boundaries)
 
@@ -25,7 +15,6 @@ cogent is divided into layers:
 
 - kernel        → compositional algebra
 - ports         → external world interfaces
-- runtime       → default implementations
 - agents        → product-facing strategies
 - combinators   → higher-order agent composition
 - providers     → model adapters
@@ -43,12 +32,9 @@ kernel
 ↓
 (no dependency)
 
-runtime and providers implement ports but must not pollute kernel.
-
 kernel must not depend on:
 
 - providers
-- runtime
 - concrete tool implementations
 - model-specific formats
 
@@ -119,19 +105,18 @@ Retry must be represented structurally in the pipeline,
 not implemented as an outer execution loop.
 
 Correct:
-
+```
 Step → Result(Control=Retry) → Recomposition
-
+```
 Incorrect:
-
+```
 while retry:
     run_step()
-
+```
 Retry must:
 
 - Be explicit in Result / Control
 - Preserve state integrity
-- Not reset global runtime implicitly
 - Not hide failure history
 
 Retry logic must remain composable.
@@ -182,7 +167,6 @@ Combinators compose Agents.
 They must:
 
 - Preserve closure (Agent → Agent)
-- Not introduce runtime schedulers
 - Not become workflow engines
 - Not implement DAG orchestration systems
 
@@ -232,7 +216,6 @@ Do not introduce:
 - State mutation outside transformation
 - Global registries inside kernel
 - Strategy logic inside kernel
-- Runtime logic creeping upward
 - Implicit retry outside Control
 
 Convenience that weakens boundaries must be rejected.
@@ -246,7 +229,6 @@ kernel      → most stable
 combinators
 agents
 providers
-runtime     → most replaceable
 
 Breaking changes are increasingly unacceptable as you move downward.
 

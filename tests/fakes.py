@@ -4,8 +4,8 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
-from cogent.kernel import Env, Result, Control
-from cogent.kernel.ports import MemoryPort, ModelPort, ToolPort, SinkPort
+from cogent.kernel import Control, Env, Result
+from cogent.kernel.ports import MemoryPort, ModelPort, SinkPort, ToolPort
 from cogent.kernel.tool import ToolCall
 
 
