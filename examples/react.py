@@ -20,8 +20,34 @@ import urllib.parse
 import re
 import ast
 import argparse
+import logging
 
-from cogent.agents.react import ReactAgent
+# Suppress LiteLLM warnings
+logging.getLogger("litellm").setLevel(logging.ERROR)
+
+from cogent.agents.react import ReactAgent, ReActState
+from cogent.kernel import ToolPort, ToolCall
+from cogent.kernel.result import Result
+
+
+class SimpleTools(ToolPort[ReActState]):
+    """Tool implementation for search, get_url, and calculate."""
+
+    async def call(self, state: ReActState, call: ToolCall) -> Result[ReActState, str]:
+        name = call.name
+        args = call.args
+
+        if name == "search":
+            result = _search(args.get("query", ""))
+        elif name == "get_url":
+            result = _get_url(args.get("url", ""))
+        elif name == "calculate":
+            result = _calculate(args.get("expression", ""))
+        else:
+            result = f"Error: Unknown tool '{name}'"
+
+        return Result(state, value=result)
+
 
 # ==================== Tool Implementations ====================
 
@@ -136,7 +162,7 @@ async def run_task(task: str) -> str:
 
     agent = ReactAgent(
         model=model_name,
-        tools=create_tool_registry(),
+        tools=SimpleTools(),
         max_steps=10,
     )
 

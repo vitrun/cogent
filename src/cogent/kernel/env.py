@@ -11,7 +11,6 @@ from cogent.kernel.ports import MemoryPort, ModelPort, SinkPort, ToolPort
 from cogent.kernel.trace import Trace
 
 
-# Protocol: 裁剪策略
 class TrimPolicy(Protocol):
     """Policy for trimming context entries."""
 
@@ -19,7 +18,6 @@ class TrimPolicy(Protocol):
         ...
 
 
-# Protocol: 执行上下文
 class Context(ABC):
     """
     Execution-local working context.
@@ -48,7 +46,6 @@ class Context(ABC):
         pass
 
 
-# 默认实现：内存上下文
 @dataclass(frozen=True)
 class InMemoryContext(Context):
     """
@@ -77,7 +74,6 @@ class InMemoryContext(Context):
         return InMemoryContext(_entries=tuple(trimmed_list))
 
 
-# 环境聚合
 @dataclass
 class Env:
     """Environment aggregation - combines all ports."""

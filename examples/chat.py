@@ -6,6 +6,11 @@ Chat example using Anthropic model with streaming output and memory support.
 
 import os
 import asyncio
+import logging
+
+# Suppress LiteLLM warnings
+logging.getLogger("litellm").setLevel(logging.ERROR)
+
 from litellm import completion
 
 from cogent import Env, ReActState, Agent, Result, Control
@@ -142,8 +147,8 @@ async def chat():
             # Create agent and run
             print("Assistant: ", end="", flush=True)
 
-            agent = Agent.start(initial_state, user_input).then(process_message)
-            result = await agent.run(env)
+            agent = Agent.start(user_input).then(process_message)
+            result = await agent.run(initial_state, env)
 
             # Update initial state for next iteration
             initial_state = result.state

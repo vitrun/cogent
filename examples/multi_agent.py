@@ -15,7 +15,11 @@ from __future__ import annotations
 
 import os
 import asyncio
+import logging
 from typing import Any
+
+# Suppress LiteLLM warnings
+logging.getLogger("litellm").setLevel(logging.ERROR)
 
 from litellm import completion
 
@@ -50,8 +54,8 @@ class LiteLLMModel(ModelPort):
 def create_researcher() -> Agent[MultiState, str]:
     """Agent that breaks down a research topic into sub-topics."""
 
-    async def _run(env: MultiEnv) -> Result[MultiState, str]:
-        ms = env.state
+    async def _run(state: MultiState, env: MultiEnv) -> Result[MultiState, str]:
+        ms = state
         task = ms.shared[-1] if ms.shared else ""
 
         prompt = f"""You are a research planner. Break down the following topic into 2-3 specific sub-topics to research.
@@ -75,8 +79,8 @@ Respond with just a list of sub-topics, one per line. Keep it brief."""
 def create_fetcher() -> Agent[MultiState, str]:
     """Agent that fetches/gathers information on a topic."""
 
-    async def _run(env: MultiEnv) -> Result[MultiState, str]:
-        ms = env.state
+    async def _run(state: MultiState, env: MultiEnv) -> Result[MultiState, str]:
+        ms = state
         topic = ms.shared[-1] if ms.shared else ""
 
         prompt = f"""You are a research assistant. Provide a brief, factual summary (2-3 sentences) about:
@@ -100,8 +104,8 @@ Be accurate and concise."""
 def create_synthesizer() -> Agent[MultiState, str]:
     """Agent that synthesizes findings into a summary."""
 
-    async def _run(env: MultiEnv) -> Result[MultiState, str]:
-        ms = env.state
+    async def _run(state: MultiState, env: MultiEnv) -> Result[MultiState, str]:
+        ms = state
         # Get all findings from shared
         findings = [s for s in ms.shared if s.startswith("Findings on")]
 
@@ -126,8 +130,8 @@ Write a brief, unified summary (2-3 paragraphs)."""
 def create_reviewer() -> Agent[MultiState, str]:
     """Agent that reviews and improves the output."""
 
-    async def _run(env: MultiEnv) -> Result[MultiState, str]:
-        ms = env.state
+    async def _run(state: MultiState, env: MultiEnv) -> Result[MultiState, str]:
+        ms = state
         summary = [s for s in ms.shared if s.startswith("Summary:")]
 
         if not summary:
@@ -206,7 +210,6 @@ async def main():
     env = MultiEnv(
         model=model,
         registry=registry,
-        state=initial_state,
     )
 
     print("=" * 60)
@@ -217,25 +220,25 @@ async def main():
 
     # Step 1: Research - break down into sub-topics
     print("Step 1: Researcher breaking down topic...")
-    r1 = await handoff("researcher").run(env)
+    r1 = await handoff("researcher").run(initial_state, env)
     print(f"  → {r1.value[:100]}...")
     print()
 
     # Step 2: Fetch - get info on sub-topics (simplified: just use original topic)
     print("Step 2: Fetcher gathering information...")
-    r2 = await handoff("fetcher").run(env.with_state(r1.state))
+    r2 = await handoff("fetcher").run(r1.state, env)
     print(f"  → {r2.value[:100]}...")
     print()
 
     # Step 3: Synthesize
     print("Step 3: Synthesizer creating summary...")
-    r3 = await handoff("synthesizer").run(env.with_state(r2.state))
+    r3 = await handoff("synthesizer").run(r2.state, env)
     print(f"  → {r3.value[:100]}...")
     print()
 
     # Step 4: Review
     print("Step 4: Reviewer improving output...")
-    r4 = await handoff("reviewer").run(env.with_state(r3.state))
+    r4 = await handoff("reviewer").run(r3.state, env)
     print(f"  → {r4.value[:100]}...")
     print()
 
